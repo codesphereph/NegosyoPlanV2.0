@@ -52,6 +52,8 @@
     users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'
   };
   const VOICE = () => (G.GrowVoice ? G.GrowVoice.button() : '');
+  /* LEDIP logo button → OLEDIPO staff login */
+  const STAFF = (cls) => `<button type="button" class="ledip-btn ${cls || ''}" data-act="adLoginOpen" aria-label="${t('OLEDIPO Staff')} — log in" title="${t('OLEDIPO Staff')}"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"><span>${t('OLEDIPO Staff')}</span></button>`;
   const LOGO = () => (G.GrowLanding ? G.GrowLanding.logo() : '');
   const ic = (k, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[k] || ''}</svg>`;
 
@@ -290,7 +292,6 @@
     if (base === 'programs') loadPrograms();
     if (base === 'loan' && G.GrowLoans && $('#loanAcct')) G.GrowLoans.after();
     if (base === 'settings' && G.GrowInstall && $('#setInstall')) { localStorage.removeItem && (function () { try { localStorage.removeItem('growInstallLater'); } catch (e) { /* ignore */ } })(); G.GrowInstall.mount($('#setInstall'), 'app'); }
-    if (base === 'home' && G.GrowInstall) G.GrowInstall.mount(main, 'app');
     if (S._needUpgrade) { S._needUpgrade = false; upgradeDialog(); }
   }
 
@@ -624,7 +625,7 @@
 
   /* ---------------------------------------------------------------- LOAN */
   function vLoan(sub) {
-    if (!sub) sub = G.GrowLoans && G.GrowLoans.hasLoans() ? 'account' : 'apply';
+    if (!sub) sub = (G.GrowLoans && G.GrowLoans.hasLoans()) || (S.profile.review && S.profile.review.status && S.profile.review.status !== 'Draft') ? 'account' : 'apply';
     const tabsHtml = `<div class="tabs loan-tabs" role="tablist"><a role="tab" href="#loan/apply" class="${sub !== 'account' ? 'on' : ''}">${ic('send')} ${t('Apply for EMBRACE')}</a><a role="tab" href="#loan/account" class="${sub === 'account' ? 'on' : ''}">${ic('loan')} ${t('My Loan')}</a></div>`;
     if (sub === 'account') return `<div class="page-head"><div><h1>${t('My Loan')}</h1><p class="muted">${t('Remaining balance, upcoming payment, maturity date and payment history')}</p></div></div>` + tabsHtml + (G.GrowLoans ? G.GrowLoans.view() : '');
     return tabsHtml + vLoanApply();
@@ -711,7 +712,7 @@
         <div class="btns"><button class="btn ghost" data-act="changePin">${t('Change password')}</button><button class="btn ghost" data-act="lockNow">${ic('lock')} Lock now</button><button class="btn ghost danger" data-act="wipe">${ic('trash')} Erase all data on this device</button></div></div>
       <div class="form-card"><h2>About NegosyoPlan</h2><p><b>NegosyoPlan — Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</b> v${esc(G.GROW_CONFIG.VERSION)}. Developed for the ${esc(G.GROW_CONFIG.OFFICE)}, ${esc(G.GROW_CONFIG.LGU)}, to help micro-entrepreneurs and MSMEs, especially EMBRACE (Expanded Micro Business Recovery Assistance during Crisis and Emergency) loan applicants, prepare business plans and financial statements and keep a reusable MSME Enterprise Passport.</p>
         <p class="muted small">Financial computations use only the information you provide. Missing information is flagged, not invented. Professional review of financial statements is recommended. NegosyoPlan does not guarantee loan approval.</p>
-        <p><a href="#admin">${ic('users')} ${t('OLEDIPO Staff')}</a></p></div>`;
+        ${STAFF()}</div>`;
   }
 
   /* ---------------------------------------------------------------- PROGRAMS */
@@ -1151,7 +1152,7 @@
       <button class="btn big full" type="submit">${ic('lock')} ${t('Log in')}</button><p id="pinErr" class="err" role="alert"></p></form>
       <details class="small"><summary>${t('Forgot password?')}</summary><p>For your security, your data on this device can only be opened with your password. If you have an online account, you can erase this device and sign in again to restore your Passport.</p>
       <button class="btn sm ghost danger" id="forgotWipe">Erase this device and start again</button></details>
-      <p class="small"><a href="#admin" id="staffLink">${t('OLEDIPO Staff')}</a></p></div></div><div id="toasts"></div>`;
+      ${STAFF()}</div></div><div id="toasts"></div>`;
     ($('#lgUser') && !$('#lgUser').value ? $('#lgUser') : $('#lgPass')).focus();
     $('#unlockForm').onsubmit = async (e) => {
       e.preventDefault();
@@ -1160,7 +1161,6 @@
       catch (err) { $('#pinErr').textContent = t('Wrong username or password. Please try again.'); $('#lgPass').value = ''; $('#lgPass').focus(); }
     };
     $('#forgotWipe').onclick = async () => { if (confirm('Erase all NegosyoPlan data on this device?')) { await Store.wipe(); location.reload(); } };
-    $('#staffLink').onclick = () => { setTimeout(route, 0); };
   }
   function welcome() {
     const keep = {}; ['nuUser'].forEach((k) => { const e = $('#' + k); if (e) keep[k] = e.value; });
@@ -1176,7 +1176,7 @@
       <p class="muted small field-hint">${t('At least 8 characters with letters and numbers.')}</p>
       <button class="btn big full" type="submit">${t('Get started')} ${ic('arrowR')}</button><p id="pinErr" class="err" role="alert"></p></form>
       <p class="muted small">Your information stays on this device unless you choose to submit your application and give consent to share it with OLEDIPO.</p>
-      <p class="small"><a href="#admin" id="staffLink">${t('OLEDIPO Staff')}</a></p></div></div><div id="toasts"></div>`;
+      ${STAFF()}</div></div><div id="toasts"></div>`;
     S._pinLogoShown = true;
     $$('input[name="wl"]').forEach((r) => (r.onchange = () => { S.settings.lang = r.value; Store.setMeta('settings', S.settings); applySettings(); welcome(); }));
     $('#pinForm').onsubmit = async (e) => {
@@ -1188,7 +1188,6 @@
       S.profile = C.newProfile(); S.profile.lang = S.settings.lang;
       await Store.saveProfile(S.profile); await start();
     };
-    $('#staffLink').onclick = () => { setTimeout(route, 0); };
   }
 
   /* ================================================================ sample (fictional) */
@@ -1305,13 +1304,13 @@
     if (!G.GrowAdmin) return;
     if (S.shellMode !== 'admin' || !$('#main')) {
       S.shellMode = 'admin';
-      document.body.innerHTML = `<header class="top"><a class="brand" href="#home">${LOGO()}<span><b>NegosyoPlan</b><small>OLEDIPO Staff Workspace</small></span></a>
+      document.body.innerHTML = `<header class="top"><a class="brand" href="#home"><span class="brand-logo ledip-mark"><img src="assets/ledip-icon.png" alt="" width="44" height="44"></span><span><b>OLEDIPO Staff</b><small>NegosyoPlan · Office of the Local Economic Development and Investment Promotion Officer</small></span></a>
         <div class="top-r"><a class="btn sm ghost" href="#home">${ic('arrowL')} Applicant app</a></div></header><main id="main" class="admin-main" tabindex="-1"></main><div id="toasts" aria-live="polite"></div>`;
     }
     G.GrowAdmin.render();
   }
 
 
-  G.GrowApp = { S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
+  G.GrowApp = { STAFF, S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
   document.addEventListener('DOMContentLoaded', boot);
 })(window);

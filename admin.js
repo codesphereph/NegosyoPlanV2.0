@@ -25,12 +25,22 @@
     listView(main);
   }
 
-  function loginView(main) {
-    main.innerHTML = `<div class="gate-card admin-login"><h1>${ic('users')} OLEDIPO Staff Workspace</h1><p class="muted">Review EMBRACE applications submitted through NegosyoPlan.</p>
-      <div class="fld"><label for="adName">Your name</label><input id="adName" autocomplete="name"></div>
-      <div class="fld"><label for="adKey">Admin key</label><input id="adKey" type="password" autocomplete="current-password"></div>
-      <div class="btns"><button class="btn big" data-act="adLogin">Sign in</button></div><p id="adErr" class="err" role="alert"></p>
-      <p class="muted small">The admin key is shown in the Apps Script log after running <code>setup()</code>. Keep it confidential.</p></div>`;
+  /* staff login (page + modal share the same form, with the LEDIP logo) */
+  function loginForm(inModal) {
+    return `<div class="ad-login"><img class="ad-logo" src="assets/ledip.png" alt="LEDIP — Office of the Local Economic Development and Investment Promotion Officer, Iloilo Province" width="180" height="180">
+      <h2>OLEDIPO Staff Login</h2><p class="muted small">Review NegosyoPlan applications, confirm GCash payments and post loan payments.</p>
+      <div class="fld"><label for="adName">Your name</label><input id="adName" autocomplete="name" placeholder="e.g. Juan Dela Cruz"></div>
+      <div class="fld"><label for="adKey">Admin key</label><div class="pw-wrap"><input id="adKey" type="password" autocomplete="current-password">
+        <button type="button" class="pw-eye" data-act="togglePw" data-for="adKey" aria-label="Show key">${ic('eye')}</button></div></div>
+      <button class="btn big full" data-act="adLogin" data-modal="${inModal ? 1 : ''}">${ic('lock')} Log in</button><p id="adErr" class="err" role="alert"></p>
+      <p class="muted small center">For authorized OLEDIPO / LEDIP Center staff only. Every sign-in is recorded.</p></div>`;
+  }
+  function loginView(main) { main.innerHTML = `<div class="gate-card admin-login">${loginForm(false)}</div>`; }
+  function loginModal() {
+    if (tokenGet()) { location.hash = '#admin'; return; }
+    A().modal(loginForm(true), 'ad-modal');
+    const n = $('#adName'); if (n) n.focus();
+    const k = $('#adKey'); if (k) k.onkeydown = (e) => { if (e.key === 'Enter') $('[data-act=adLogin]').click(); };
   }
 
   async function loadList() {
@@ -78,6 +88,11 @@
       <div class="form-card"><h2>Evaluation</h2>
         <div class="row"><div class="fld"><label for="adSt">Status</label><select id="adSt">${(st().statuses || []).map((s) => `<option ${s === d.review.status ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
         <div class="fld w1"><label for="adNo">Applicant No.</label><input id="adNo" value="${esc(d.review.applicantNo)}"></div><div class="fld w1"><label for="adBatch">Batch No.</label><input id="adBatch" value="${esc(d.review.batchNo)}"></div></div>
+        <div class="sub-card iv-edit"><h3>${ic('users')} Interview schedule <small class="muted">(shown to the applicant in My Loan → Loan Status)</small></h3>
+          <div class="row"><div class="fld"><label for="adIvAt">Date and time</label><input id="adIvAt" type="datetime-local" value="${esc((d.review.interview && d.review.interview.at) || '')}"></div>
+          <div class="fld w2"><label for="adIvVenue">Venue</label><input id="adIvVenue" value="${esc((d.review.interview && d.review.interview.venue) || 'LEDIP Center, Provincial Capitol, Iloilo City')}"></div></div>
+          <div class="fld"><label for="adIvBring">What to bring</label><input id="adIvBring" value="${esc((d.review.interview && d.review.interview.bring) || 'Valid ID, original documents, 3 signed copies of the Application Form')}"></div>
+          <p class="muted small">Set the status to <b>Scheduled for Interview</b> and fill in the date to notify the applicant.</p></div>
         <div class="fld"><label for="adRem">TWG remarks / recommendations (visible to applicant)</label><textarea id="adRem" rows="3">${esc(d.review.remarks)}</textarea></div>
         <h3>Verification</h3><p class="muted small">Mark records you have checked against originals. Unchecked records remain "self-reported".</p>
         ${vbox('fs', 'Financial statements verified')}${vbox('plan', 'Business plan reviewed')}${vbox('eligibility', 'Eligibility confirmed (interview)')}
@@ -187,9 +202,14 @@
     try {
       switch (a) {
         case 'adLogin': {
+          if (!API.configured()) { $('#adErr').textContent = 'The online server is not configured (config.js).'; break; }
+          if (!navigator.onLine) { $('#adErr').textContent = 'You need internet to log in.'; break; }
           const r = await API.call({ action: 'adminLogin', key: $('#adKey').value, name: $('#adName').value });
-          tokenSet(r.token); st().list = null; render(); break;
+          tokenSet(r.token); st().list = null;
+          if (b.dataset.modal) { A().closeModal(); if ((location.hash || '').indexOf('#admin') === 0) A().renderAdmin(); else location.hash = '#admin'; } else render();
+          break;
         }
+        case 'adLoginOpen': loginModal(); break;
         case 'adLogout': tokenSet(null); st().list = null; st().current = null; render(); break;
         case 'adRefresh': st().list = null; render(); break;
         case 'adStatus': st().status = st().status === b.dataset.s ? '' : b.dataset.s; render(); break;
@@ -238,7 +258,8 @@
           const d = st().current, verified = {};
           document.querySelectorAll('[data-ver]').forEach((x) => { const was = !!(d.review.verified || {})[x.dataset.ver]; if (x.checked !== was) verified[x.dataset.ver] = x.checked; });
           const r = await API.call({ action: 'adminUpdate', token: tokenGet(), passportId: d.passportId, status: $('#adSt').value, remarks: $('#adRem').value,
-            applicantNo: $('#adNo').value, batchNo: $('#adBatch').value, verified, note: $('#adNote').value });
+            applicantNo: $('#adNo').value, batchNo: $('#adBatch').value, verified, note: $('#adNote').value,
+            interview: $('#adIvAt').value ? { at: $('#adIvAt').value, venue: $('#adIvVenue').value, bring: $('#adIvBring').value } : null });
           d.review = r.review; st().list = null; A().toast('Saved.', 'ok'); render(); break;
         }
         case 'adExport': {
@@ -251,5 +272,5 @@
     } catch (e) { const er = $('#adErr'); if (er) er.textContent = e.message; fail(e); }
   }
 
-  G.GrowAdmin = { render, onClick };
+  G.GrowAdmin = { render, onClick, loginModal };
 })(window);

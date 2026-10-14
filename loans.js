@@ -41,8 +41,33 @@
   const cls = (s) => ST[s] || 'info';
 
   /* ---------- My Loan page ---------- */
+  /* ---------- Loan Status: where is my application? ---------- */
+  const STEPS = [['Submitted', 'send', 'Application received by OLEDIPO'], ['Scheduled for Interview', 'users', 'Interview with the LEDIP Center'],
+    ['For TWG Evaluation', 'docs', 'Technical Working Group reviews your application'], ['Approved', 'check', 'Loan approved'], ['Released', 'loan', 'Check released — your loan account starts']];
+  function statusCard() {
+    const S = A().S, rv = (S.profile && S.profile.review) || {}, st = rv.status || 'Draft';
+    const order = STEPS.map((x) => x[0]);
+    let cur = order.indexOf(st === 'Fully Paid' ? 'Released' : st === 'Disapproved' ? 'Approved' : st);
+    const dis = st === 'Disapproved';
+    const when = (name) => { const h = (rv.history || []).filter((x) => x.status === name).pop(); return h ? fd(h.at) : (name === 'Submitted' && rv.submittedAt ? fd(rv.submittedAt) : ''); };
+    const iv = rv.interview;
+    const ivHtml = st === 'Scheduled for Interview' && iv && iv.at ? `<div class="iv-box">${ic('users')} <div><b>Your interview</b>
+        <p><span>${esc(new Date(iv.at).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span>${iv.venue ? `<br><span>${esc(iv.venue)}</span>` : ''}</p>
+        ${iv.bring ? `<p class="small"><b>Bring:</b> ${esc(iv.bring)}</p>` : ''}</div></div>` : '';
+    const steps = STEPS.map(([name, icon, desc], i) => {
+      const state = cur < 0 ? 'todo' : i < cur ? 'done' : i === cur ? (dis ? 'bad' : 'now') : 'todo';
+      const label = dis && i === 3 ? 'Disapproved' : name;
+      return `<li class="ls-${state}"><span class="ls-dot">${state === 'done' ? ic('check') : state === 'bad' ? ic('x') : ic(icon)}</span><div><b>${esc(label)}</b><small>${esc(dis && i === 3 ? 'Not approved this time — see the remarks below' : desc)}</small>${state === 'done' || state === 'now' ? `<em>${when(name)}</em>` : ''}</div></li>`;
+    }).join('');
+    const top = st === 'Draft' ? `<p class="muted">You have not submitted an EMBRACE application yet.</p><a class="btn" href="#loan/apply">${ic('send')} Prepare and submit my application</a>`
+      : `<p class="ls-now">Current status: <span class="st st-${esc(st.replace(/\s/g, ''))}">${esc(st)}</span>${rv.applicantNo ? ` · Applicant No. <b>${esc(rv.applicantNo)}</b>` : ''}</p>`;
+    return `<section class="form-card ls-card"><div class="loan-head"><h2>${ic('send')} Loan Status</h2>${S.session ? `<button class="btn sm ghost" data-act="lnStatus">${ic('cloud')} Refresh</button>` : ''}</div>
+      ${top}${st !== 'Draft' ? `<ol class="ls-steps">${steps}</ol>` : ''}${ivHtml}
+      ${rv.remarks && st !== 'Draft' ? `<p class="hint">${ic('alert')} OLEDIPO remarks: ${esc(rv.remarks)}</p>` : ''}
+      <p class="muted small">This app does not guarantee loan approval. Final evaluation is done by the EMBRACE Technical Working Group.</p></section>`;
+  }
   function view() {
-    return `<div id="loanAcct"><p class="muted">Loading your loan account…</p></div>`;
+    return statusCard() + `<div id="loanAcct"><p class="muted">Loading your loan account…</p></div>`;
   }
   async function after() {
     const el = $('#loanAcct'); if (!el) return;
@@ -119,6 +144,7 @@
   async function onClick(a, b) {
     switch (a) {
       case 'lnRefresh': await load(true); render(cache); return true;
+      case 'lnStatus': { if (A().sync) await A().sync({ toast: true }); A().route(); return true; }
       case 'lnLink': {
         const er0 = $('#lnErr'); if (!navigator.onLine) { if (er0) er0.textContent = 'You need internet to link your loan the first time.'; return true; }
         try { const k = await keys(); const r = await API.call({ action: 'linkLoan', loanRef: $('#lnRef').value, checkNo: $('#lnChk').value, loanKeys: k, deviceId: await devId() });

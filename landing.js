@@ -46,14 +46,15 @@
           <p class="lp-text">Prepare your <b>business plan</b> and <b>financial statements</b> step by step, keep your <b>MSME Enterprise Passport</b> and get your <b>EMBRACE loan requirements</b> ready — even without internet.</p>
           <div class="land-feats"><span>✓ Works offline</span><span>✓ English · Filipino · Hiligaynon</span></div>
           <p class="grow-by">Office of the Local Economic Development and Investment Promotion Officer · Iloilo Province<br>
-            <button type="button" class="link-btn" id="installLink" hidden>Install app</button> <a href="#admin" id="staffBtn">OLEDIPO Staff</a></p>
+            <button type="button" class="link-btn" id="installLink" hidden>Install app</button></p>
+          <button type="button" class="ledip-btn on-dark" id="staffBtn" aria-label="OLEDIPO Staff — log in" title="OLEDIPO Staff"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"><span>OLEDIPO Staff</span></button>
         </div>
       </div>
     </div><div id="toasts" aria-live="polite"></div>`;
     if (splash) document.body.appendChild(splash);
     const go = () => { if (G.GrowInstall) G.GrowInstall.hide(false); const l = document.getElementById('landing'); l.classList.add('leaving'); setTimeout(onEnter, G.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450); };
     document.getElementById('enterBtn').onclick = go;
-    document.getElementById('staffBtn').onclick = (e) => { e.preventDefault(); if (G.GrowInstall) G.GrowInstall.hide(false); location.hash = '#admin'; if (onStaff) onStaff(); };
+    document.getElementById('staffBtn').onclick = (e) => { e.preventDefault(); if (G.GrowInstall) G.GrowInstall.hide(false); if (G.GrowAdmin && G.GrowAdmin.loginModal) G.GrowAdmin.loginModal(); else { location.hash = '#admin'; if (onStaff) onStaff(); } };
     const il = document.getElementById('installLink');
     if (G.GrowInstall && G.GrowInstall.available()) { il.hidden = false; il.onclick = () => G.GrowInstall.show(); }
     const land = document.getElementById('landing');
