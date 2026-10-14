@@ -10,7 +10,9 @@ window.GROW_CONFIG = {
   SPLASH_MS: 2300, // length of the opening animation
   OFFICE: 'Office of the Local Economic Development and Investment Promotion Officer (OLEDIPO)',
   LGU: 'Provincial Government of Iloilo',
-  VERSION: '4.5.0',
+  VERSION: '4.8.0',
+  /* Demo buttons on the landing page (for presentations). Set to false to hide them in production. */
+  DEMO: true,
   /* Marketplace — External Support Services and merchants (hardcoded list).
      Fill in phone / email / facebook / address when OLEDIPO has them; empty contact fields are simply not shown. */
   MARKETPLACE: [

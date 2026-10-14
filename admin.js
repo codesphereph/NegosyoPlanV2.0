@@ -14,11 +14,13 @@
   function render() {
     const main = $('#main'); if (!main) return;
     if (!API.configured()) {
-      main.innerHTML = `<div class="form-card"><h1>OLEDIPO Staff Workspace</h1><p>The online server is not configured for this copy of NegosyoPlan. Set <code>API_URL</code> in <code>js/config.js</code>.</p></div>`;
+      main.innerHTML = `<div class="form-card"><h1>NegosyoPlan Admin</h1><p>The online server is not configured for this copy of NegosyoPlan. Set <code>API_URL</code> in <code>js/config.js</code>.</p></div>`;
       return;
     }
     if (!tokenGet()) return loginView(main);
     if (st().current) return detailView(main);
+    if (!st().tab) st().tab = 'dash';
+    if (st().tab === 'dash' || st().tab === 'insights') return dashView(main, st().tab);
     if (st().tab === 'orders') return ordersView(main);
     if (st().tab === 'merchants') return merchantsView(main);
     if (st().tab === 'loans') return st().loan ? loanDetail(main) : loansView(main);
@@ -28,7 +30,7 @@
   /* staff login (page + modal share the same form, with the LEDIP logo) */
   function loginForm(inModal) {
     return `<div class="ad-login"><img class="ad-logo" src="assets/ledip.png" alt="LEDIP — Office of the Local Economic Development and Investment Promotion Officer, Iloilo Province" width="180" height="180">
-      <h2>OLEDIPO Staff Login</h2><p class="muted small">Review NegosyoPlan applications, confirm GCash payments and post loan payments.</p>
+      <h2>NegosyoPlan Admin</h2><p class="muted small">Review NegosyoPlan applications, confirm GCash payments and post loan payments.</p>
       <div class="fld"><label for="adName">Your name</label><input id="adName" autocomplete="name" placeholder="e.g. Juan Dela Cruz"></div>
       <div class="fld"><label for="adKey">Admin key</label><div class="pw-wrap"><input id="adKey" type="password" autocomplete="current-password">
         <button type="button" class="pw-eye" data-act="togglePw" data-for="adKey" aria-label="Show key">${ic('eye')}</button></div></div>
@@ -106,7 +108,7 @@
   }
 
   function tabsBar(cur) {
-    return `<div class="tabs" role="tablist">${[['apps', 'Applications'], ['orders', 'GCash Orders (Voice to Text)'], ['loans', 'Loans &amp; Payments'], ['merchants', 'Marketplace Merchants']].map(([k, l]) => `<button class="${cur === k ? 'on' : ''}" data-act="adTab" data-t="${k}">${l}</button>`).join('')}</div>`;
+    return `<div class="tabs" role="tablist">${[['dash', 'Dashboard'], ['apps', 'Applications'], ['insights', 'Insights'], ['orders', 'GCash Orders'], ['loans', 'Loans &amp; Payments'], ['merchants', 'Merchants']].map(([k, l]) => `<button class="${cur === k ? 'on' : ''}" data-act="adTab" data-t="${k}">${l}</button>`).join('')}</div>`;
   }
 
   async function ordersView(main) {
@@ -124,6 +126,18 @@
         <td>${o.status === 'Payment submitted' || o.status === 'Awaiting payment' ? `<button class="btn sm" data-act="adOrdSet" data-id="${esc(o.orderId)}" data-s="Paid">Mark paid</button> <button class="btn sm ghost danger" data-act="adOrdSet" data-id="${esc(o.orderId)}" data-s="Rejected">Reject</button>` : ''}
           ${o.status === 'Paid' || o.status === 'Completed' ? `<button class="btn sm ghost" data-act="adOrdSet" data-id="${esc(o.orderId)}" data-s="Refunded">Refunded</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">No orders yet.</td></tr>'}</table></div>
       <p class="muted small">Before marking <b>Paid</b>, confirm the ₱700 and the reference number in OLEDIPO's GCash transaction history. Marking Paid unlocks Voice to Text on the applicant's phone. Orders paid by online checkout (PayMongo) are confirmed automatically.</p>`;
+  }
+
+  async function dashView(main, which) {
+    if (!st().dash) {
+      main.innerHTML = tabsBar(which) + '<p class="muted pad">Loading…</p>';
+      try { st().dash = await API.call({ action: 'adminDashboard', token: tokenGet() }); } catch (e) { return fail(e); }
+    }
+    st().dashUi = st().dashUi || { week: 0, ivDay: '' };
+    const D = G.GrowAdminDash;
+    main.innerHTML = tabsBar(which) + (which === 'insights' ? D.insights(st().dash) : D.dashboard(st().dash, st().dashUi));
+    D.bindTips(main);
+    const dt = $('#adIvDate'); if (dt) dt.onchange = () => { st().dashUi.ivDay = dt.value; render(); };
   }
 
   async function merchantsView(main) {
@@ -218,6 +232,12 @@
           st().current = { passportId: b.dataset.id, profile: r.profile, review: r.review, documentsFolderUrl: r.documentsFolderUrl }; render(); window.scrollTo(0, 0); break;
         }
         case 'adBack': st().current = null; render(); break;
+        case 'adDashRefresh': st().dash = null; render(); break;
+        case 'adWeek': { const u = st().dashUi; const d = Number(b.dataset.d); u.week = d === 0 ? 0 : Math.min(0, (u.week || 0) + d); render(); break; }
+        case 'adIvDay': { const u = st().dashUi, base = u.ivDay ? new Date(u.ivDay + 'T00:00:00') : new Date(); base.setDate(base.getDate() + Number(b.dataset.d));
+          u.ivDay = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0') + '-' + String(base.getDate()).padStart(2, '0'); render(); break; }
+        case 'adGoStatus': st().tab = 'apps'; st().status = b.dataset.s; st().current = null; render(); window.scrollTo(0, 0); break;
+        case 'adTabS': st().tab = b.dataset.s; st().current = null; st().loan = null; render(); window.scrollTo(0, 0); break;
         case 'adTab': st().tab = b.dataset.t; st().current = null; st().loan = null; render(); break;
         case 'adLoansRefresh': st().loans = null; render(); break;
         case 'adLStatus': st().lstatus = st().lstatus === b.dataset.s ? '' : b.dataset.s; render(); break;
@@ -260,7 +280,7 @@
           const r = await API.call({ action: 'adminUpdate', token: tokenGet(), passportId: d.passportId, status: $('#adSt').value, remarks: $('#adRem').value,
             applicantNo: $('#adNo').value, batchNo: $('#adBatch').value, verified, note: $('#adNote').value,
             interview: $('#adIvAt').value ? { at: $('#adIvAt').value, venue: $('#adIvVenue').value, bring: $('#adIvBring').value } : null });
-          d.review = r.review; st().list = null; A().toast('Saved.', 'ok'); render(); break;
+          d.review = r.review; st().list = null; st().dash = null; A().toast('Saved.', 'ok'); render(); break;
         }
         case 'adExport': {
           const L = st().list || [], q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';

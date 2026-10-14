@@ -42,22 +42,23 @@
 
   /* ---------- My Loan page ---------- */
   /* ---------- Loan Status: where is my application? ---------- */
-  const STEPS = [['Submitted', 'send', 'Application received by OLEDIPO'], ['Scheduled for Interview', 'users', 'Interview with the LEDIP Center'],
+  const STEPS = [['Pending Upon Review', 'send', 'Application received — waiting for OLEDIPO to review'], ['Submitted Documents on Review', 'docs', 'OLEDIPO is checking your documents'], ['Scheduled for Interview', 'users', 'Interview with the LEDIP Center'],
     ['For TWG Evaluation', 'docs', 'Technical Working Group reviews your application'], ['Approved', 'check', 'Loan approved'], ['Released', 'loan', 'Check released — your loan account starts']];
   function statusCard() {
-    const S = A().S, rv = (S.profile && S.profile.review) || {}, st = rv.status || 'Draft';
+    const S = A().S, rv = (S.profile && S.profile.review) || {}, LEG = { Submitted: 'Pending Upon Review', 'For Interview': 'Scheduled for Interview' };
+    const st = LEG[rv.status] || rv.status || 'Draft', AP = 4;
     const order = STEPS.map((x) => x[0]);
     let cur = order.indexOf(st === 'Fully Paid' ? 'Released' : st === 'Disapproved' ? 'Approved' : st);
     const dis = st === 'Disapproved';
-    const when = (name) => { const h = (rv.history || []).filter((x) => x.status === name).pop(); return h ? fd(h.at) : (name === 'Submitted' && rv.submittedAt ? fd(rv.submittedAt) : ''); };
+    const when = (name) => { const h = (rv.history || []).filter((x) => x.status === name).pop(); return h ? fd(h.at) : (name === 'Pending Upon Review' && rv.submittedAt ? fd(rv.submittedAt) : ''); };
     const iv = rv.interview;
     const ivHtml = st === 'Scheduled for Interview' && iv && iv.at ? `<div class="iv-box">${ic('users')} <div><b>Your interview</b>
         <p><span>${esc(new Date(iv.at).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span>${iv.venue ? `<br><span>${esc(iv.venue)}</span>` : ''}</p>
         ${iv.bring ? `<p class="small"><b>Bring:</b> ${esc(iv.bring)}</p>` : ''}</div></div>` : '';
     const steps = STEPS.map(([name, icon, desc], i) => {
       const state = cur < 0 ? 'todo' : i < cur ? 'done' : i === cur ? (dis ? 'bad' : 'now') : 'todo';
-      const label = dis && i === 3 ? 'Disapproved' : name;
-      return `<li class="ls-${state}"><span class="ls-dot">${state === 'done' ? ic('check') : state === 'bad' ? ic('x') : ic(icon)}</span><div><b>${esc(label)}</b><small>${esc(dis && i === 3 ? 'Not approved this time — see the remarks below' : desc)}</small>${state === 'done' || state === 'now' ? `<em>${when(name)}</em>` : ''}</div></li>`;
+      const label = dis && i === AP ? 'Disapproved' : name;
+      return `<li class="ls-${state}"><span class="ls-dot">${state === 'done' ? ic('check') : state === 'bad' ? ic('x') : ic(icon)}</span><div><b>${esc(label)}</b><small>${esc(dis && i === AP ? 'Not approved this time — see the remarks below' : desc)}</small>${state === 'done' || state === 'now' ? `<em>${when(name)}</em>` : ''}</div></li>`;
     }).join('');
     const top = st === 'Draft' ? `<p class="muted">You have not submitted an EMBRACE application yet.</p><a class="btn" href="#loan/apply">${ic('send')} Prepare and submit my application</a>`
       : `<p class="ls-now">Current status: <span class="st st-${esc(st.replace(/\s/g, ''))}">${esc(st)}</span>${rv.applicantNo ? ` · Applicant No. <b>${esc(rv.applicantNo)}</b>` : ''}</p>`;

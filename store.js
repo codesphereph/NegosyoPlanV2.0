@@ -89,6 +89,9 @@
 
   var Store = {
     cryptoAvailable: !!subtle,
+    /** switch to another on-device database (used by Demo mode, so real accounts are never touched) */
+    useDb: function (name) { DB_NAME = name || 'grow-db'; dbp = null; memFallback = {}; KEY = null; },
+    dbName: function () { return DB_NAME; },
     /** returns {hasPin, hasData} */
     status: function () {
       return Promise.all([idbGet('lock'), idbGet('profile')]).then(function (r) {
@@ -122,7 +125,7 @@
     },
     /** new password (and optionally a new username): re-encrypt everything with the new key */
     changePin: function (newPin, newUsername) {
-      var self = this, SEC = ['session', 'loans', 'loanKeys'];
+      var self = this, SEC = ['session', 'loans', 'loanKeys', 'pendingSignup'];
       return Promise.all([self.getProfile(), self.listFileIds(), self.username(), Promise.all(SEC.map(function (k) { return self.getSecure(k).catch(function () { return null; }); }))]).then(function (r) {
         var profile = r[0], ids = r[1], user = newUsername || r[2], secs = r[3];
         return Promise.all(ids.map(function (id) { return self.getFile(id).then(function (f) { return [id, f]; }); })).then(function (files) {

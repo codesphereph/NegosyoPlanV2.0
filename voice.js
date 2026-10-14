@@ -113,9 +113,9 @@
     return '';
   }
   function start() {
-    if (!API().configured()) return A().toast('Voice to Text needs the online server (config.js).', 'err');
+    if (!S().demo && !API().configured()) return A().toast('Voice to Text needs the online server (config.js).', 'err');
     if (!unlocked()) return payModal();
-    if (!navigator.onLine) return A().toast(t('Voice to Text needs internet. You can type your answers offline.'), 'err');
+    if (!S().demo && !navigator.onLine) return A().toast(t('Voice to Text needs internet. You can type your answers offline.'), 'err');
     if (!hasConsent()) return askConsent(start);
     const ctx = collect();
     if (!ctx.fields.length && !ctx.tables.length) return A().toast('There are no fields to fill on this page.', 'err');
@@ -192,17 +192,24 @@
     const secs = (Date.now() - R.t0) / 1000;
     if (secs < 1.2 || !R.chunks.length) { setState(t('That was too short. Tap the microphone and try again.')); const m = $('#micBig'); if (m) m.disabled = false; return; }
     setState(`<span class="spin"></span> ${t('Writing it down…')} <small class="muted">(10–30 seconds)</small>`);
+    const demoReview = () => {
+      const P = S().profile, fills = R.ctx.fields.filter((f) => { const v = A().getPath(P, f.path); return v == null || v === '' || (Array.isArray(v) && !v.length); }).slice(0, 8)
+        .map((f) => { const o = simulate(f); return o.value == null ? null : { path: f.path, value: Array.isArray(o.value) ? o.value.join(' | ') : String(o.value) }; }).filter(Boolean);
+      review(R.ctx, { transcript: '(demo — simulated speech for the presentation)', fills, rows: [], unused: '' });
+    };
+    if (S().demo && (!API().configured() || !navigator.onLine)) { setTimeout(demoReview, 900); return; }
     try {
       const blob = new Blob(R.chunks, { type: R.mr.mimeType || 'audio/webm' });
       const sess = S().session;
       const r = await API().call({
         action: 'voiceFill', audio: await blobToB64(blob), mime: blob.type, lang: S().settings.lang, outLang: S().settings.voiceOut || 'en',
-        page: R.ctx.page, fields: R.ctx.fields, tables: R.ctx.tables.map(({ path, label, columns }) => ({ path, label, columns })),
+        demo: S().demo ? true : undefined, page: R.ctx.page, fields: R.ctx.fields, tables: R.ctx.tables.map(({ path, label, columns }) => ({ path, label, columns })),
         token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey
       });
       if (rec !== R) return; // closed meanwhile
       review(R.ctx, r);
     } catch (e) {
+      if (S().demo) return demoReview();
       if (lockedErr(e)) return;
       setState(`<span class="err">${A().ic('alert')} ${esc(e.message)}</span>`);
       const m = $('#micBig'); if (m) m.disabled = false;
@@ -324,6 +331,7 @@
   }
   const micDenied = 'Microphone not allowed. Allow the microphone for this site in your browser settings, then try again.';
   function ready(then) {
+    if (S().demo) return true;
     if (!supported()) { A().toast('This browser cannot record sound.', 'err'); return false; }
     if (!API().configured()) { A().toast('Voice to Text needs the online server (config.js).', 'err'); return false; }
     if (!unlocked()) { payModal(); return false; }
@@ -342,9 +350,26 @@
   }
 
   /* send one answer for one field */
+  /* demo: an answer taken from the fictional sample business (clearly labelled as simulated) */
+  function simulate(f) {
+    let v = A().getPath(A().sample(), f.path);
+    if (Array.isArray(v)) v = v.join(' | ');
+    v = v == null ? '' : String(v);
+    if (!v) v = { number: '1000', date: '2020-01-15', choice: (f.options[0] || '').split('=')[0], multi: (f.options[0] || ''), text: 'This is a sample spoken answer for “' + f.label + '”.' }[f.type] || 'Sample answer';
+    let val = normValue(f, v);
+    if (val != null && f.type === 'multi') val = Array.from(new Set((A().getPath(S().profile, f.path) || []).concat(val)));
+    return { value: val, transcript: '(demo — simulated speech) ' + (Array.isArray(val) ? val.join(', ') : val), note: val == null ? 'Demo could not simulate this box.' : '', simulated: true };
+  }
   async function askServer(f, blob) {
+    if (S().demo) {
+      if (!blob || !API().configured() || !navigator.onLine) { await new Promise((r) => setTimeout(r, 900)); return simulate(f); }
+      try { return await askServerReal(f, blob, true); } catch (e) { return simulate(f); }
+    }
+    return askServerReal(f, blob, false);
+  }
+  async function askServerReal(f, blob, demo) {
     const sess = S().session;
-    const r = await API().call({
+    const r = await API().call({ demo: demo || undefined,
       action: 'voiceField', audio: await blobToB64(blob), mime: blob.type, lang: S().settings.lang, outLang: S().settings.voiceOut || 'en',
       field: { path: f.path, label: f.label, help: f.help, group: [f.page, f.group].filter(Boolean).join(' — '), type: f.type, options: f.options },
       token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey
@@ -378,7 +403,13 @@
     const f = fieldInfo(path); if (!f) return;
     const r = recorder(60, (s, lv) => { bubble(path, `<b class="rec-dot"></b> ${t('Listening…')} ${Math.floor(s)}s — ${t('tap the microphone again when done')}<span class="mini-lvl"><i style="width:${Math.round(lv * 100)}%"></i></span>`, 'rec'); });
     fieldRec = { path, r };
-    try { await r.start(); } catch (e) { fieldRec = null; return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err'); }
+    try { await r.start(); } catch (e) {
+      fieldRec = null;
+      if (!S().demo) return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err');
+      bubble(path, `<b class="rec-dot"></b> ${t('Listening…')} (demo)`, 'rec'); await new Promise((x) => setTimeout(x, 1600));
+      const out = simulate(f); if (out.value == null) return bubble(path, esc(out.note), 'err');
+      write(path, out.value); return bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} <small>(demo — simulated)</small>`, 'ok');
+    }
     const b = micBtn(path); if (b) b.classList.add('on');
     let res;
     try { res = await r.done; } catch (e) { fieldRec = null; return; }
@@ -392,7 +423,7 @@
       write(path, out.value);
       const el = $(`#main [data-bind="${CSS.escape(path)}"], #main [data-arr="${CSS.escape(path)}"]`); const fld = el && el.closest('.fld');
       if (fld) { fld.classList.add('voice-filled'); setTimeout(() => fld.classList.remove('voice-filled'), 2200); }
-      bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} <button type="button" class="link-btn" data-act="voiceUndo">${t('Undo')}</button>`, 'ok');
+      bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} ${out.simulated ? '<small class="demo-tag">demo — simulated</small> ' : ''}<button type="button" class="link-btn" data-act="voiceUndo">${t('Undo')}</button>`, 'ok');
     } catch (e) { if (lockedErr(e)) return; bubble(path, `${A().ic('alert')} ${esc(e.message)}`, 'err'); }
   }
 
@@ -446,7 +477,12 @@
     const setSt = (h) => { const e = $('#qState'); if (e) e.innerHTML = h; };
     const r = recorder(90, (s, lv) => { setSt(`<b class="rec-dot"></b> ${t('Listening…')} ${Math.floor(s)}s — ${t('tap again when done')}`); const l = $('#qLvl'); if (l) l.style.width = Math.round(lv * 100) + '%'; });
     Q.r = r;
-    try { await r.start(); } catch (e) { Q.r = null; return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`); }
+    try { await r.start(); } catch (e) {
+      Q.r = null;
+      if (!S().demo) return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`);
+      Q.busy = true; setSt(`<b class="rec-dot"></b> ${t('Listening…')} (demo)`); await new Promise((x) => setTimeout(x, 1600));
+      Q.busy = false; return qWrite(f, simulate(f), my);
+    }
     const m = $('#qMic'); if (m) m.classList.add('on');
     let res; try { res = await r.done; } catch (e) { return; }
     if (Q !== my || my.list[my.i] !== f) return;
@@ -456,6 +492,14 @@
     try {
       const out = await askServer(f, res.blob);
       if (Q !== my || my.list[my.i] !== f) return;
+      qWrite(f, out, my);
+    } catch (e) { if (lockedErr(e)) return; setSt(`<span class="err">${A().ic('alert')} ${esc(e.message)}</span>`); }
+    finally { Q.busy = false; const m3 = $('#qMic'); if (m3) m3.disabled = false; }
+  }
+  function qWrite(f, out, my) {
+    const setSt = (h) => { const e = $('#qState'); if (e) e.innerHTML = h; };
+    if (Q !== my || my.list[my.i] !== f) return;
+    {
       if (out.value == null) {
         setSt(`<span class="err">${A().ic('alert')} ${esc(out.note || 'Not clear.')}</span>${out.transcript ? `<br><small class="muted">${t('heard')}: “${esc(out.transcript)}”</small>` : ''}<br>${t('Tap the microphone and try again, or Skip.')}`);
       } else {
@@ -467,9 +511,9 @@
         $('#qResult').innerHTML = `<div class="q-answer">${ed}<small class="muted">${t('You can correct it here.')} ${t('heard')}: “${esc(out.transcript)}”</small></div>`;
         const e = $('#qEdit'); if (e) e.oninput = () => { let v = e.value; if (f.type === 'number') v = v.replace(/[₱,\s]/g, ''); A().setPath(S().profile, f.path, v); A().touch(); };
         const nb = $('[data-act=voiceQNext]'); if (nb) nb.focus();
+        if (out.simulated) { const st = $('#qState'); if (st) st.insertAdjacentHTML('beforeend', ' <small class="demo-tag">demo — simulated</small>'); }
       }
-    } catch (e) { if (lockedErr(e)) return; setSt(`<span class="err">${A().ic('alert')} ${esc(e.message)}</span>`); }
-    finally { Q.busy = false; const m3 = $('#qMic'); if (m3) m3.disabled = false; }
+    }
   }
   function qGo(d) {
     if (!Q || Q.busy) return; qStop();

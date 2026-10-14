@@ -53,7 +53,7 @@
   };
   const VOICE = () => (G.GrowVoice ? G.GrowVoice.button() : '');
   /* LEDIP logo button → OLEDIPO staff login */
-  const STAFF = (cls) => `<button type="button" class="ledip-btn ${cls || ''}" data-act="adLoginOpen" aria-label="${t('OLEDIPO Staff')} — log in" title="${t('OLEDIPO Staff')}"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"><span>${t('OLEDIPO Staff')}</span></button>`;
+  const STAFF = (cls) => `<button type="button" class="ledip-btn ${cls || ''}" data-act="adLoginOpen" aria-label="NegosyoPlan Admin — log in"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"></button>`;
   const LOGO = () => (G.GrowLanding ? G.GrowLanding.logo() : '');
   const ic = (k, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[k] || ''}</svg>`;
 
@@ -190,6 +190,7 @@
     el.className = 'pill ' + s.cls; el.innerHTML = ic(s.icon) + `<span>${esc(s.text)}</span>`;
   }
   async function sync(opts = {}) {
+    if (S.demo) { renderSyncPill(); if (opts.toast) toast('Demo mode — nothing is sent online.', 'ok'); return; }
     if (!S.session || !API.configured() || (!S.online && !API.isGas()) || S.sync.state === 'busy') { renderSyncPill(); return; }
     S.sync.state = 'busy'; renderSyncPill();
     try {
@@ -248,6 +249,7 @@
   function shell() {
     document.body.innerHTML = `
       <a class="skip" href="#main">Skip to content</a>
+      ${S.demo ? `<div class="demo-bar" role="status"><b>DEMO MODE</b><span>${S.demo === 'voice' ? 'Voice to Text demo' : 'Sample client account'} · fictional data · your real account is not affected</span><button type="button" data-act="demoExit">${ic('x')} Exit demo</button></div>` : ''}
       <header class="top">
         <a class="brand" href="#home" aria-label="NegosyoPlan home">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></a>
         <div class="top-r">
@@ -952,8 +954,11 @@
       case 'changePin': pinChangeDialog(); break;
       case 'doChangePin': doChangePin(); break;
       case 'doUpgrade': doUpgrade(); break;
+      case 'signupOpen': signupModal(); break;
+      case 'doSignup': doSignup(b); break;
       case 'togglePw': { const i = document.getElementById(b.dataset.for); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.classList.toggle('on', i.type === 'text'); } break; }
-      case 'lockNow': Store.lock(); lockScreen(); break;
+      case 'lockNow': if (S.demo) { exitDemo(); break; } Store.lock(); lockScreen(); break;
+      case 'demoExit': exitDemo(); break;
       case 'wipe': if (confirm('Erase ALL NegosyoPlan data on this device? Download a backup first if you need it.') && confirm('Are you sure? This cannot be undone.')) { await Store.wipe(); location.hash = ''; location.reload(); } break;
       default: if (G.GrowLoans && /^ln[A-Z]/.test(a)) { G.GrowLoans.onClick(a, b); return; } if (G.GrowMarket && /^mk[A-Z]/.test(a)) { G.GrowMarket.onClick(a, b); return; } if (G.GrowVoice && G.GrowVoice.onClick(a, b)) return; if (G.GrowAdmin && G.GrowAdmin.onClick) G.GrowAdmin.onClick(a, b, e);
     }
@@ -1142,14 +1147,135 @@
     await Store.changePin(p1, normUser(u)); closeModal(); toast(t('Username and password saved.'), 'ok');
   }
 
+  /* animated NegosyoPlan logo (welcome + log-in) */
+  function LOGO_ANIM(sm) {
+    const html = `<div class="pin-logo${sm ? ' sm' : ''}${S._pinLogoShown ? ' still' : ''}" role="img" aria-label="NegosyoPlan"><span class="pl-ring"></span><span class="pl-glow"></span>
+      <span class="pl-img"><img src="assets/logo-circle.png" alt="" width="150" height="150" draggable="false"><span class="pl-glare"></span></span>
+      <i class="pl-spark k1"></i><i class="pl-spark k2"></i><i class="pl-spark k3"></i><i class="pl-spark k4"></i></div>`;
+    return html;
+  }
+
+  /* ================================================================ sign up (device login + online account in one step) */
+  function signupModal() {
+    modal(`<div class="signup">${LOGO_ANIM(true).replace('pin-logo', 'pin-logo xs')}<h2>${t('Create your NegosyoPlan account')}</h2>
+      <p class="muted small">${t('One account for your Passport, Business Plan, Financial Statements and your EMBRACE loan application.')}</p>
+      <div class="row"><div class="fld"><label for="suFirst">${t('First name')}</label><input id="suFirst" autocomplete="given-name" required></div>
+        <div class="fld"><label for="suLast">${t('Last name')}</label><input id="suLast" autocomplete="family-name" required></div></div>
+      <div class="fld"><label for="suMobile">${t('Mobile number')}</label><input id="suMobile" type="tel" inputmode="tel" placeholder="09XXXXXXXXX" autocomplete="tel" required></div>
+      ${userField('suUser', t('Username'), '', 'username')}<p class="muted small field-hint">${t('4 to 30 letters or numbers, no spaces. Example: liza.delapena')}</p>
+      <div class="row">${pwField('suPass', t('Password'), 'new-password')}${pwField('suPass2', t('Repeat password'), 'new-password')}</div>
+      <p class="muted small field-hint">${t('At least 8 characters with letters and numbers.')}</p>
+      <label class="toggle"><input type="checkbox" id="suOk"> ${t('I agree that my account is kept on the Provincial Government of Iloilo’s secure server. My Passport is shared with OLEDIPO only when I submit my application.')}</label>
+      <button class="btn big full" data-act="doSignup">${ic('check')} ${t('Sign up')}</button><p id="suErr" class="err" role="alert"></p>
+      <p class="signup-line">${t('Already have an account?')} <button type="button" class="link-btn strong" data-act="closeModal">${t('Log in')}</button></p></div>`, 'signup-modal');
+    const f = $('#suFirst'); if (f) f.focus();
+  }
+  async function doSignup(btn) {
+    const v = (id) => ($('#' + id) ? $('#' + id).value.trim() : '');
+    const err = (m) => { $('#suErr').textContent = m; };
+    const first = v('suFirst'), last = v('suLast'), mobile = v('suMobile').replace(/\D/g, '').replace(/^63(?=9\d{9}$)/, '0'), user = normUser(v('suUser')), p1 = $('#suPass').value;
+    if (!first || !last) return err(t('Please enter your first and last name.'));
+    if (!/^09\d{9}$/.test(mobile)) return err(t('Please enter your mobile number (09XXXXXXXXX).'));
+    const bad = userError(user) || passError(p1) || (p1 !== $('#suPass2').value ? t('Passwords do not match.') : '');
+    if (bad) return err(bad);
+    if (!$('#suOk').checked) return err(t('Please tick the box to agree.'));
+    const st = await Store.status(), oldUser = await Store.username();
+    if (st.hasPin && !confirm(t('This phone already has a NegosyoPlan account saved') + (oldUser ? ' (' + oldUser + ')' : '') + '. ' + t('Signing up will remove it from this phone (it stays online if it has an online account). Continue?'))) return;
+    btn.disabled = true; const label = btn.innerHTML; btn.innerHTML = '<span class="spin"></span> ' + t('Please wait…');
+    try {
+      let session = null;
+      const online = API.configured() && navigator.onLine;
+      if (online) {   // create the online account first so a taken username can be fixed here
+        const r = await API.call({ action: 'register', username: user, mobile, password: p1, name: first + ' ' + last });
+        session = { token: r.token, passportId: r.passportId, username: r.username };
+      }
+      const keep = Object.assign({}, S.settings);
+      if (st.hasPin) await Store.wipe();
+      await Store.setMeta('settings', keep);
+      await Store.createPin(p1, user);
+      const P = C.newProfile(); P.lang = S.settings.lang;
+      Object.assign(P.owner, { firstName: first, lastName: last, contact: mobile });
+      if (session) { P.passportId = session.passportId; await Store.setSecure('session', session); }
+      else await Store.setSecure('pendingSignup', { username: user, mobile, password: p1, name: first + ' ' + last });
+      await Store.saveProfile(P);
+      closeModal(); await start();
+      toast(session ? t('Welcome! Your account is ready.') + ' Passport ID ' + session.passportId : t('Account created on this phone. It will be registered online when you have internet.'), 'ok');
+    } catch (e) { err(e.message); btn.disabled = false; btn.innerHTML = label; }
+  }
+  /* sign-ups made offline: register online as soon as there is internet */
+  async function finishPendingSignup() {
+    if (S.session || !API.configured() || !navigator.onLine) return;
+    const p = await Store.getSecure('pendingSignup').catch(() => null); if (!p) return;
+    try {
+      const r = await API.call({ action: 'register', username: p.username, mobile: p.mobile, password: p.password, name: p.name });
+      S.session = { token: r.token, passportId: r.passportId, username: r.username }; await Store.setSecure('session', S.session); await Store.setSecure('pendingSignup', null);
+      S.profile.passportId = r.passportId; touch(); renderSyncPill(); sync(); toast(t('Your account is now registered online.') + ' Passport ID ' + r.passportId, 'ok');
+    } catch (e) {
+      await Store.setSecure('pendingSignup', null);
+      toast(t('Could not register your account online') + ': ' + e.message + ' ' + t('You can create it when you submit your application.'), 'err');
+    }
+  }
+
+  /* ================================================================ DEMO (presentations) — separate on-device database */
+  function demoLoan() {
+    const today = new Date(), d = (y, m, dd) => new Date(y, m - 1, dd), ymd = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+    const amount = 50000, term = 24, monthly = 2083.33, release = d(today.getFullYear() - 1, today.getMonth() + 1, 25);
+    const first = new Date(release); first.setMonth(first.getMonth() + 6);
+    const schedule = [], history = []; let paid = 0, bal = amount, next = null;
+    for (let i = 1; i <= term; i++) {
+      const due = new Date(first); due.setMonth(due.getMonth() + i - 1);
+      const isPaid = due < today;
+      if (isPaid) { paid += monthly; bal = Math.round((bal - monthly) * 100) / 100; history.unshift({ date: ymd(new Date(due.getTime() - 2 * 864e5)), particulars: 'Payment-Monthly Amortization', orNo: String(8812300 + i), amount: monthly, penalty: 0, balance: bal }); }
+      else if (!next) next = { no: i, due: ymd(due), amount: monthly };
+      schedule.push({ no: i, due: ymd(due), amount: monthly, paid: isPaid ? monthly : 0, status: isPaid ? 'paid' : 'upcoming' });
+    }
+    const mat = new Date(first); mat.setMonth(mat.getMonth() + term - 1);
+    paid = Math.round(paid * 100) / 100;
+    return { loanId: 'LN-DEMO-001', applicationNo: '901', name: 'Liza Dela Peña (DEMO)', business: "Nanay Liza's Batchoy House", amount, term, monthly, checkNo: '5900999',
+      releaseDate: ymd(release), firstDue: ymd(first), maturity: ymd(mat), collateral: 'Co-maker', comaker: 'Juan Dela Cruz', paid, penaltiesPaid: 0, balance: Math.round((amount - paid) * 100) / 100,
+      progress: Math.round(paid / amount * 100), status: first > today ? 'Grace period' : 'Current', arrears: 0, missed: 0, daysOverdue: 0, penaltyEstimate: 0, next, remarks: 'Demo data', history, schedule, asOf: ymd(today) };
+  }
+  async function startDemo(kind) {
+    S.demo = kind;
+    Store.useDb('negosyoplan-demo');
+    await Store.wipe();
+    await Store.setMeta('settings', S.settings);
+    await Store.createPin('demo-' + Date.now(), 'demo.client');
+    const now = new Date(), iv = new Date(now.getTime() + 3 * 864e5); iv.setHours(9, 0, 0, 0);
+    const ivAt = iv.getFullYear() + '-' + String(iv.getMonth() + 1).padStart(2, '0') + '-' + String(iv.getDate()).padStart(2, '0') + 'T09:00';
+    let P;
+    if (kind === 'voice') {
+      P = C.newProfile();
+      Object.assign(P.owner, { firstName: 'Rosa', lastName: 'Mendoza', contact: '09170000106' });
+    } else {
+      P = C.normalize(sampleProfile());
+      P.passportId = 'EMB-DEMO-0001';
+      P.consent.share = true;
+      P.review = { status: 'Scheduled for Interview', applicantNo: '901', remarks: 'Please bring your original documents to the interview.', submittedAt: new Date(now.getTime() - 5 * 864e5).toISOString(),
+        interview: { at: ivAt, venue: 'LEDIP Center, Provincial Capitol, Iloilo City', bring: 'Valid ID, Barangay certificates, Mayor’s Permit, 3 signed copies of the Application Form' },
+        history: [{ status: 'Pending Upon Review', at: new Date(now.getTime() - 5 * 864e5).toISOString() }, { status: 'Submitted Documents on Review', at: new Date(now.getTime() - 3 * 864e5).toISOString() }, { status: 'Scheduled for Interview', at: new Date(now.getTime() - 864e5).toISOString() }], verified: {} };
+      await Store.setSecure('loans', { at: Date.now(), loans: [demoLoan()], how: 'Get a Payment Order Slip from the LEDIP Center (Secretariat), pay the amortization in cash at the Iloilo Provincial Government BAYAD Center, and give the Secretariat a copy of the Official Receipt.' });
+    }
+    P.consent.voice = true; P.consent.voiceAt = now.toISOString();
+    await Store.setMeta('voiceKey', 'DEMO');
+    await Store.saveProfile(P);
+    if (location.hash && location.hash !== '#home') history.replaceState(null, '', location.pathname + location.search);
+    await start();
+    if (kind === 'voice') location.hash = '#passport/business'; else if (location.hash !== '#home') location.hash = '#home'; else route();
+    if (kind === 'voice') setTimeout(() => { if (G.GrowVoice) G.GrowVoice.onClick('voiceAsk', document.body); }, 700);
+    else toast('Demo client: Liza Dela Peña · try Passport, Business Plan, Finance, Loan → My Loan, Docs.', 'ok');
+  }
+  function exitDemo() { S.demo = null; location.hash = ''; location.reload(); }
+
   /* ================================================================ lock / welcome */
   async function lockScreen() {
     const u = await Store.username();
-    document.body.innerHTML = `<header class="top gate-top"><span class="brand">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></span></header><div class="gate"><div class="gate-card"><h1>NegosyoPlan</h1><p class="muted">Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</p>
+    document.body.innerHTML = `<header class="top gate-top"><span class="brand">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></span></header><div class="gate"><div class="gate-card">${LOGO_ANIM(true)}<p class="muted">Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</p>
       <form id="unlockForm" class="login-form"><h2>${t('Log in')}</h2>
       ${u ? userField('lgUser', t('Username'), u) : ''}
       ${pwField('lgPass', u ? t('Password') : t('Your PIN (last time only)'), 'current-password', u ? '' : 'inputmode="numeric"')}
       <button class="btn big full" type="submit">${ic('lock')} ${t('Log in')}</button><p id="pinErr" class="err" role="alert"></p></form>
+      <p class="signup-line">${t('No account yet?')} <button type="button" class="link-btn strong" data-act="signupOpen">${t('Sign up')}</button></p>
       <details class="small"><summary>${t('Forgot password?')}</summary><p>For your security, your data on this device can only be opened with your password. If you have an online account, you can erase this device and sign in again to restore your Passport.</p>
       <button class="btn sm ghost danger" id="forgotWipe">Erase this device and start again</button></details>
       ${STAFF()}</div></div><div id="toasts"></div>`;
@@ -1164,9 +1290,7 @@
   }
   function welcome() {
     const keep = {}; ['nuUser'].forEach((k) => { const e = $('#' + k); if (e) keep[k] = e.value; });
-    document.body.innerHTML = `<header class="top gate-top"><span class="brand">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></span></header><div class="gate"><div class="gate-card wide"><div class="pin-logo${S._pinLogoShown ? ' still' : ''}" aria-hidden="true"><span class="pl-ring"></span><span class="pl-glow"></span>
-      <span class="pl-img"><img src="assets/logo-circle.png" alt="" width="150" height="150" draggable="false"><span class="pl-glare"></span></span>
-      <i class="pl-spark k1"></i><i class="pl-spark k2"></i><i class="pl-spark k3"></i><i class="pl-spark k4"></i></div><h1 class="pl-title">NegosyoPlan</h1><p class="lead">Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</p>
+    document.body.innerHTML = `<header class="top gate-top"><span class="brand">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></span></header><div class="gate"><div class="gate-card wide">${LOGO_ANIM(false)}<h1 class="pl-title">NegosyoPlan</h1><p class="lead">Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</p>
       <p>Your guide to preparing a <b>business plan</b>, <b>financial statements</b> and <b>EMBRACE loan requirements</b> — on your phone or computer, even without internet.</p>
       <h2>${t('Choose your language')}</h2><div class="chips center">${Object.entries(I.LANGS).map(([k, v]) => `<label class="chip big"><input type="radio" name="wl" value="${k}" ${S.settings.lang === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div>
       <form id="pinForm" class="login-form"><h2>${t('Create your username and password')}</h2><p class="muted small">${t('They protect your information on this device. Do not share your password.')}</p>
@@ -1258,7 +1382,7 @@
     S.shellMode = '';
     applySettings();
     if (!location.hash || location.hash === '#') location.hash = '#home'; else route();
-    if (S.session) sync();
+    if (S.demo) { /* demo: no network */ } else if (S.session) sync(); else finishPendingSignup();
     if (G.GrowVoice) G.GrowVoice.init().then(() => { if (/^#(passport|plan|finance|settings)/.test(location.hash)) route(); });
     if (G.GrowLoans) G.GrowLoans.load(false).then(() => { if (/^#(home)?$/.test(location.hash || '#home') && G.GrowLoans.hasLoans()) route(); });
   }
@@ -1280,7 +1404,7 @@
       if (!S.profile) return location.reload();
       route();
     });
-    G.addEventListener('online', () => { S.online = true; renderSyncPill(); sync(); });
+    G.addEventListener('online', () => { S.online = true; renderSyncPill(); sync(); if (S.profile) finishPendingSignup(); });
     G.addEventListener('offline', () => { S.online = false; renderSyncPill(); });
   }
 
@@ -1304,13 +1428,13 @@
     if (!G.GrowAdmin) return;
     if (S.shellMode !== 'admin' || !$('#main')) {
       S.shellMode = 'admin';
-      document.body.innerHTML = `<header class="top"><a class="brand" href="#home"><span class="brand-logo ledip-mark"><img src="assets/ledip-icon.png" alt="" width="44" height="44"></span><span><b>OLEDIPO Staff</b><small>NegosyoPlan · Office of the Local Economic Development and Investment Promotion Officer</small></span></a>
+      document.body.innerHTML = `<header class="top admin-top"><a class="brand" href="#home"><span class="brand-logo ledip-mark"><img src="assets/ledip-icon.png" alt="" width="44" height="44"></span><span><b>NegosyoPlan Admin</b><small>Office of the Local Economic Development and Investment Promotion Officer · Iloilo Province</small></span></a>
         <div class="top-r"><a class="btn sm ghost" href="#home">${ic('arrowL')} Applicant app</a></div></header><main id="main" class="admin-main" tabindex="-1"></main><div id="toasts" aria-live="polite"></div>`;
     }
     G.GrowAdmin.render();
   }
 
 
-  G.GrowApp = { STAFF, S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
+  G.GrowApp = { startDemo, exitDemo, sample: () => sampleProfile(), STAFF, S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
   document.addEventListener('DOMContentLoaded', boot);
 })(window);
