@@ -908,3 +908,27 @@ h2.mt { margin-top: 18px; }
 .demo-bar button { border: 0; border-radius: 99px; padding: 5px 12px; background: #2b1d00; color: #fff; font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .demo-bar button .ic { width: 14px; height: 14px; }
 .demo-tag { display: inline-block; padding: 1px 7px; border-radius: 99px; background: #fff3c4; color: #6b4d00; font-weight: 700; font-size: .72rem; }
+
+/* client type badges (Loan Status) + reloan block */
+.ct-badge { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 6px; padding: 3px 10px; border-radius: 99px; font-size: .78rem; font-weight: 800; border: 1px solid; }
+.ct-badge .ic { width: 14px; height: 14px; }
+.ct-active { background: #e6f0ff; color: #123A8C; border-color: #8fb3ef; } .ct-new { background: #e3f4e8; color: #1d6b35; border-color: #8fd0a2; } .ct-paid { background: #f1f3f6; color: #3d4a5f; border-color: #c9d3e0; }
+.ct-text { color: #123A8C; }
+.reloan-block { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0; padding: 14px 16px; border-radius: 14px; background: #fff7e6; border: 1px solid #f0c27a; }
+.reloan-block > .ic { flex: none; width: 26px; height: 26px; color: #b05f00; margin-top: 2px; }
+.reloan-block p { margin: 4px 0; }
+.demo-btns .btn-demo { flex: 1 1 140px; }
+
+/* page Demo button next to Voice to Text */
+.btn.demo-voice { display: inline-flex; align-items: center; gap: 6px; border: 1.5px dashed #c99a00; background: #fff8dc; color: #6b4d00; font-weight: 800; }
+.btn.demo-voice svg { width: 14px; height: 14px; fill: currentColor; }
+.btn.demo-voice.on { background: #F7C41A; border-style: solid; color: #2b1d00; }
+
+/* side menu: always below the real header height, scrolls vertically when the window is short */
+.top { top: var(--demo-h, 0px); }
+.demo-bar { top: 0; }
+@media (min-width: 900px) {
+  .side { top: var(--side-top, var(--top-h)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .side a { flex: none; }
+  .side-foot { flex: none; }
+}

@@ -19,7 +19,8 @@
   function button() {
     if (!supported()) return '';
     return `<button type="button" class="btn voice-btn" data-act="voiceAsk" title="${t('NegosyoPlan asks the questions one by one and writes your answers')}">
-      <span class="vb-ic">${A().ic('mic')}</span><span>${t('Voice to Text')}</span>${unlocked() ? '' : `<span class="lock-badge" title="${t('Locked')}">${A().ic('lock')}</span>`}</button>`;
+      <span class="vb-ic">${A().ic('mic')}</span><span>${t('Voice to Text')}</span>${unlocked() ? '' : `<span class="lock-badge" title="${t('Locked')}">${A().ic('lock')}</span>`}</button>`
+      + (G.GROW_CONFIG && G.GROW_CONFIG.DEMO ? `<button type="button" class="btn demo-voice${demoVoice ? ' on' : ''}" data-act="voiceDemo" title="Demo Voice to Text (presentation)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>${demoVoice ? 'Demo on' : 'Demo'}</button>` : '');
   }
 
   /* -------------------------------------------------- tips per page (what to say) */
@@ -113,9 +114,9 @@
     return '';
   }
   function start() {
-    if (!S().demo && !API().configured()) return A().toast('Voice to Text needs the online server (config.js).', 'err');
+    if (!isDemo() && !API().configured()) return A().toast('Voice to Text needs the online server (config.js).', 'err');
     if (!unlocked()) return payModal();
-    if (!S().demo && !navigator.onLine) return A().toast(t('Voice to Text needs internet. You can type your answers offline.'), 'err');
+    if (!isDemo() && !navigator.onLine) return A().toast(t('Voice to Text needs internet. You can type your answers offline.'), 'err');
     if (!hasConsent()) return askConsent(start);
     const ctx = collect();
     if (!ctx.fields.length && !ctx.tables.length) return A().toast('There are no fields to fill on this page.', 'err');
@@ -197,19 +198,19 @@
         .map((f) => { const o = simulate(f); return o.value == null ? null : { path: f.path, value: Array.isArray(o.value) ? o.value.join(' | ') : String(o.value) }; }).filter(Boolean);
       review(R.ctx, { transcript: '(demo — simulated speech for the presentation)', fills, rows: [], unused: '' });
     };
-    if (S().demo && (!API().configured() || !navigator.onLine)) { setTimeout(demoReview, 900); return; }
+    if (isDemo() && (!API().configured() || !navigator.onLine)) { setTimeout(demoReview, 900); return; }
     try {
       const blob = new Blob(R.chunks, { type: R.mr.mimeType || 'audio/webm' });
       const sess = S().session;
       const r = await API().call({
         action: 'voiceFill', audio: await blobToB64(blob), mime: blob.type, lang: S().settings.lang, outLang: S().settings.voiceOut || 'en',
-        demo: S().demo ? true : undefined, page: R.ctx.page, fields: R.ctx.fields, tables: R.ctx.tables.map(({ path, label, columns }) => ({ path, label, columns })),
-        token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey
+        demo: isDemo() ? true : undefined, page: R.ctx.page, fields: R.ctx.fields, tables: R.ctx.tables.map(({ path, label, columns }) => ({ path, label, columns })),
+        token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey || (isDemo() ? 'DEMO' : '')
       });
       if (rec !== R) return; // closed meanwhile
       review(R.ctx, r);
     } catch (e) {
-      if (S().demo) return demoReview();
+      if (isDemo()) return demoReview();
       if (lockedErr(e)) return;
       setState(`<span class="err">${A().ic('alert')} ${esc(e.message)}</span>`);
       const m = $('#micBig'); if (m) m.disabled = false;
@@ -331,7 +332,7 @@
   }
   const micDenied = 'Microphone not allowed. Allow the microphone for this site in your browser settings, then try again.';
   function ready(then) {
-    if (S().demo) return true;
+    if (isDemo()) return true;
     if (!supported()) { A().toast('This browser cannot record sound.', 'err'); return false; }
     if (!API().configured()) { A().toast('Voice to Text needs the online server (config.js).', 'err'); return false; }
     if (!unlocked()) { payModal(); return false; }
@@ -361,7 +362,7 @@
     return { value: val, transcript: '(demo — simulated speech) ' + (Array.isArray(val) ? val.join(', ') : val), note: val == null ? 'Demo could not simulate this box.' : '', simulated: true };
   }
   async function askServer(f, blob) {
-    if (S().demo) {
+    if (isDemo()) {
       if (!blob || !API().configured() || !navigator.onLine) { await new Promise((r) => setTimeout(r, 900)); return simulate(f); }
       try { return await askServerReal(f, blob, true); } catch (e) { return simulate(f); }
     }
@@ -372,7 +373,7 @@
     const r = await API().call({ demo: demo || undefined,
       action: 'voiceField', audio: await blobToB64(blob), mime: blob.type, lang: S().settings.lang, outLang: S().settings.voiceOut || 'en',
       field: { path: f.path, label: f.label, help: f.help, group: [f.page, f.group].filter(Boolean).join(' — '), type: f.type, options: f.options },
-      token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey
+      token: sess ? sess.token : '', deviceId: await deviceId(), voiceKey: vkey || (isDemo() ? 'DEMO' : '')
     });
     let v = r.understood ? normValue(f, r.value) : null;
     if (v != null && f.type === 'multi') v = Array.from(new Set((A().getPath(S().profile, f.path) || []).concat(v)));
@@ -405,7 +406,7 @@
     fieldRec = { path, r };
     try { await r.start(); } catch (e) {
       fieldRec = null;
-      if (!S().demo) return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err');
+      if (!isDemo()) return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err');
       bubble(path, `<b class="rec-dot"></b> ${t('Listening…')} (demo)`, 'rec'); await new Promise((x) => setTimeout(x, 1600));
       const out = simulate(f); if (out.value == null) return bubble(path, esc(out.note), 'err');
       write(path, out.value); return bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} <small>(demo — simulated)</small>`, 'ok');
@@ -479,7 +480,7 @@
     Q.r = r;
     try { await r.start(); } catch (e) {
       Q.r = null;
-      if (!S().demo) return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`);
+      if (!isDemo()) return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`);
       Q.busy = true; setSt(`<b class="rec-dot"></b> ${t('Listening…')} (demo)`); await new Promise((x) => setTimeout(x, 1600));
       Q.busy = false; return qWrite(f, simulate(f), my);
     }
@@ -533,7 +534,9 @@
   /* ================================================== LOCK + GCASH PAYMENT (₱700, one-time) */
   const PRICE = 700;
   let vkey = '', order = null, info = null;
-  function unlocked() { return !!vkey; }
+  let demoVoice = false;   // set by the page "Demo" button: Voice to Text for the presentation (real if the server allows, else simulated)
+  function isDemo() { return !!(S().demo || demoVoice); }
+  function unlocked() { return !!vkey || demoVoice; }
   async function init() {
     try { vkey = (await Store().getMeta('voiceKey')) || ''; order = (await Store().getMeta('voiceOrder')) || null; info = (await Store().getMeta('payInfo')) || null; } catch (e) { /* ignore */ }
     if (!vkey && order && navigator.onLine && API().configured()) checkStatus(true);
@@ -652,6 +655,11 @@
     switch (a) {
       case 'voiceStart': qStop(); Q = null; cancel(); start(); return true;
       case 'voiceAsk': cancel(); qStop(); interview(); return true;
+      case 'voiceDemo': {
+        cancel(); qStop();
+        if (!demoVoice) { demoVoice = true; A().route(); A().toast('Demo mode for Voice to Text is on (presentation). Answers are written into this page.', 'ok'); }
+        setTimeout(interview, 150); return true;
+      }
       case 'voiceAskAll': S().settings.voiceOnlyEmpty = false; Store().setMeta('settings', S().settings); interview(); return true;
       case 'voiceQMic': qMic(); return true;
       case 'voiceQNext': qGo(1); return true;

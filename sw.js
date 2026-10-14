@@ -1,6 +1,6 @@
 /* NegosyoPlan service worker: offline app shell (same pattern as SMILE).
    Bump VERSION whenever you change files so users get the update. */
-const VERSION = 'negosyoplan-v4.8.0';
+const VERSION = 'negosyoplan-v4.10.1';
 const SHELL = [
   './', './index.html', './styles.css', './config.js', './i18n.js', './calc.js', './store.js', './docs.js', './install.js', './landing.js', './app.js', './voice.js', './loans.js', './market.js', './admin-dash.js', './admin.js', './manifest.webmanifest',
   './assets/hero.jpg', './assets/hero-sm.jpg', './assets/hero-blur.jpg', './assets/logo-circle.png', './assets/ledip.png', './assets/ledip-icon.png',

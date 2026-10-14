@@ -243,13 +243,13 @@
 
   /* ================================================================ shell */
   const NAV = [
-    ['#home', 'home', 'Home'], ['#passport', 'id', 'Passport'], ['#plan', 'plan', 'Business Plan'], ['#finance', 'chart', 'Finance'],
+    ['#home', 'home', 'Home'], ['#passport', 'id', 'Passport'], ['#plan', 'plan', 'Business Plan'], ['#finance', 'chart', 'Financial Statement'],
     ['#loan', 'loan', 'Loan'], ['#docs', 'docs', 'Docs'], ['#market', 'store', 'Marketplace']
   ];
   function shell() {
     document.body.innerHTML = `
       <a class="skip" href="#main">Skip to content</a>
-      ${S.demo ? `<div class="demo-bar" role="status"><b>DEMO MODE</b><span>${S.demo === 'voice' ? 'Voice to Text demo' : 'Sample client account'} · fictional data · your real account is not affected</span><button type="button" data-act="demoExit">${ic('x')} Exit demo</button></div>` : ''}
+      ${S.demo ? `<div class="demo-bar" role="status"><b>DEMO MODE</b><span>${S.demo === 'voice' ? 'Voice to Text demo' : S.demo === 'new' ? 'Demo 2 · New Applicant' : 'Demo 1 · Active borrower'} · fictional data · your real account is not affected</span><button type="button" data-act="demoExit">${ic('x')} Exit demo</button></div>` : ''}
       <header class="top">
         <a class="brand" href="#home" aria-label="NegosyoPlan home">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></a>
         <div class="top-r">
@@ -266,11 +266,21 @@
       <main id="main" tabindex="-1"></main>
       <div id="toasts" aria-live="polite"></div>`;
     renderSyncPill();
+    syncLayout(); setTimeout(syncLayout, 300);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncLayout);
+  }
+  /* keep the side menu exactly below the header (+ demo bar), whatever their real height */
+  function syncLayout() {
+    const top = $('.top'), bar = $('.demo-bar'), root = document.documentElement;
+    const bh = bar ? bar.offsetHeight : 0;
+    root.style.setProperty('--demo-h', bh + 'px');
+    root.style.setProperty('--side-top', (bh + (top ? top.offsetHeight : 0)) + 'px');
   }
   function applySettings() {
     document.documentElement.style.setProperty('--scale', S.settings.size);
     document.documentElement.classList.toggle('hc', !!S.settings.contrast);
     I.set(S.settings.lang);
+    if ($('.side')) requestAnimationFrame(syncLayout);
   }
 
   /* ================================================================ router */
@@ -634,6 +644,7 @@
   }
   function vLoanApply() {
     const p = S.profile, l = p.loan, ofw = l.applicantType === 'ofw';
+    const act = G.GrowLoans && G.GrowLoans.activeLoan();
     const yn = [['yes', 'Yes'], ['no', 'No'], ['', 'Not sure']];
     const el = C.eligibility(p);
     const qs = el.list.map((x) => {
@@ -651,6 +662,7 @@
     return `<div class="page-head"><div><h1>${t('EMBRACE Loan')}</h1><p class="muted">Expanded Micro Business Recovery Assistance during Crisis and Emergency · Iloilo Provincial Government</p></div>
         <button class="btn ghost" data-act="doc" data-doc="checklist">${ic('eye')} Checklist</button></div>
       <div class="disclaimer">${ic('alert')} ${t('This app does not guarantee loan approval.')} It helps you prepare requirements based on the official EMBRACE guidelines. Applications are evaluated by the Technical Working Group (TWG).</div>
+      ${act ? G.GrowLoans.activeNotice(act) : ''}
       <div class="form-card"><h2>1. ${t('Eligibility self-check')}</h2>
         ${field({ path: 'loan.applicantType', label: 'I am applying as', type: 'radio', options: [['micro', 'Micro-enterprise owner'], ['ofw', 'Overseas Filipino Worker (OFW)']] })}
         <ul class="elig-list">${qs}</ul>
@@ -675,7 +687,8 @@
         ${p.review && p.review.remarks ? `<p class="hint">${ic('alert')} OLEDIPO remarks: ${esc(p.review.remarks)}</p>` : ''}
         ${issuesBox(missingList(comp), 'Before submitting')}
         <label class="toggle consent"><input type="checkbox" data-bool="consent.share" ${p.consent.share ? 'checked' : ''}> I consent to share my Enterprise Passport, business plan, financial statements and uploaded documents with OLEDIPO / LEDIP Center of the Provincial Government of Iloilo for evaluation of my EMBRACE application and for business development assistance. I confirm the information is true to the best of my knowledge.</label>
-        <div class="btns"><button class="btn big" data-act="submit" ${!p.consent.share ? 'disabled' : ''}>${ic('send')} ${t('Submit to OLEDIPO')}</button>
+        ${act ? '<p class="err">Submission is disabled while you have an outstanding EMBRACE balance.</p>' : ''}
+        <div class="btns"><button class="btn big" data-act="submit" ${!p.consent.share || act ? 'disabled' : ''}>${ic('send')} ${t('Submit to OLEDIPO')}</button>
         <a class="btn ghost" href="#docs">${ic('print')} Print documents instead</a></div>
         <p class="muted small">Online submission needs internet. The first time, you will be asked to create your online account (username and password) so OLEDIPO can receive your application. You can also print your documents and submit them in person at the LEDIP Center.</p>
       </div>`;
@@ -1104,6 +1117,8 @@
   }
   async function submitApp() {
     const p = S.profile;
+    const act = G.GrowLoans && G.GrowLoans.activeLoan();
+    if (act) return toast('You still have an outstanding EMBRACE balance. A reloan can be applied for after full payment.', 'err');
     if (!p.consent.share) return toast('Please give consent first.', 'err');
     if (!API.configured()) return toast('Online submission is not available in this copy. Print your documents and submit them at the LEDIP Center.', 'err');
     if (!S.session) { toast('Create your online account first so OLEDIPO can receive your application.', 'err'); return accountDialog('register'); }
@@ -1112,7 +1127,7 @@
     try {
       await sync();
       if (p.meta.dirty) throw new Error('Could not sync. Check your internet and try again.');
-      const r = await API.call({ action: 'submit', token: S.session.token, consent: true });
+      const r = await API.call({ action: 'submit', token: S.session.token, consent: true, loanKeys: (await Store.getSecure('loanKeys').catch(() => null)) || [] });
       p.review = r.review; await Store.saveProfile(p); route();
       modal(`<h2>${ic('check')} Submitted</h2><p>Your application was sent to OLEDIPO / LEDIP Center. The Secretariat will contact you at <b>${esc(p.owner.contact)}</b> to schedule an interview.</p><p class="muted">Remember: bring 3 signed copies of the Application Form and your original documents.</p>`);
     } catch (e) { toast(e.message, 'err'); }
@@ -1247,13 +1262,29 @@
     if (kind === 'voice') {
       P = C.newProfile();
       Object.assign(P.owner, { firstName: 'Rosa', lastName: 'Mendoza', contact: '09170000106' });
+    } else if (kind === 'new') {
+      /* Demo 2 — New Applicant: first EMBRACE application, scheduled for interview, no loan yet */
+      P = C.normalize(sampleProfile());
+      Object.assign(P.owner, { firstName: 'Rosa', middleName: 'Lim', lastName: 'Mendoza', dob: '1986-09-02', contact: '09170000106', facebook: '', experience: 'I have cooked for our family carinderia for 6 years and attended DTI\'s Basic Food Safety seminar.' });
+      Object.assign(P.business, { name: "Rosa's Carinderia (DEMO)", nature: 'Carinderia / eatery', startYear: String(now.getFullYear() - 6), capital: '60000', annualSales: '312000', netAssets: '85000',
+        description: "Rosa's Carinderia serves home-cooked viands and rice to tricycle drivers, students and market vendors near the town plaza. It has been open for 6 years. Sales dropped during the last typhoon when the area flooded for two weeks. I want to buy a bigger refrigerator and add a breakfast menu." });
+      P.plan.projectName = "Refrigerator and working capital for Rosa's Carinderia";
+      P.loan.amount = '35000';
+      P.passportId = 'EMB-DEMO-0002';
+      P.consent.share = true;
+      P.review = { status: 'Scheduled for Interview', applicantNo: '906', remarks: 'Please bring your original documents to the interview.', submittedAt: new Date(now.getTime() - 5 * 864e5).toISOString(),
+        interview: { at: ivAt, venue: 'LEDIP Center, Provincial Capitol, Iloilo City', bring: 'Valid ID, Barangay certificates, Mayor’s Permit, 3 signed copies of the Application Form' },
+        history: [{ status: 'Pending Upon Review', at: new Date(now.getTime() - 5 * 864e5).toISOString() }, { status: 'Submitted Documents on Review', at: new Date(now.getTime() - 3 * 864e5).toISOString() }, { status: 'Scheduled for Interview', at: new Date(now.getTime() - 864e5).toISOString() }], verified: {} };
     } else {
+      /* Demo 1 — Active borrower: loan released, balance outstanding → cannot reloan yet */
       P = C.normalize(sampleProfile());
       P.passportId = 'EMB-DEMO-0001';
       P.consent.share = true;
-      P.review = { status: 'Scheduled for Interview', applicantNo: '901', remarks: 'Please bring your original documents to the interview.', submittedAt: new Date(now.getTime() - 5 * 864e5).toISOString(),
-        interview: { at: ivAt, venue: 'LEDIP Center, Provincial Capitol, Iloilo City', bring: 'Valid ID, Barangay certificates, Mayor’s Permit, 3 signed copies of the Application Form' },
-        history: [{ status: 'Pending Upon Review', at: new Date(now.getTime() - 5 * 864e5).toISOString() }, { status: 'Submitted Documents on Review', at: new Date(now.getTime() - 3 * 864e5).toISOString() }, { status: 'Scheduled for Interview', at: new Date(now.getTime() - 864e5).toISOString() }], verified: {} };
+      const rel = new Date(now.getFullYear() - 1, now.getMonth(), 25);
+      P.review = { status: 'Released', applicantNo: '901', remarks: 'Loan released. Pay your monthly amortization on time at the BAYAD Center.', submittedAt: new Date(rel.getTime() - 40 * 864e5).toISOString(),
+        history: [{ status: 'Pending Upon Review', at: new Date(rel.getTime() - 40 * 864e5).toISOString() }, { status: 'Submitted Documents on Review', at: new Date(rel.getTime() - 36 * 864e5).toISOString() },
+          { status: 'Scheduled for Interview', at: new Date(rel.getTime() - 30 * 864e5).toISOString() }, { status: 'For TWG Evaluation', at: new Date(rel.getTime() - 20 * 864e5).toISOString() },
+          { status: 'Approved', at: new Date(rel.getTime() - 10 * 864e5).toISOString() }, { status: 'Released', at: rel.toISOString() }], verified: {} };
       await Store.setSecure('loans', { at: Date.now(), loans: [demoLoan()], how: 'Get a Payment Order Slip from the LEDIP Center (Secretariat), pay the amortization in cash at the Iloilo Provincial Government BAYAD Center, and give the Secretariat a copy of the Official Receipt.' });
     }
     P.consent.voice = true; P.consent.voiceAt = now.toISOString();
@@ -1263,7 +1294,8 @@
     await start();
     if (kind === 'voice') location.hash = '#passport/business'; else if (location.hash !== '#home') location.hash = '#home'; else route();
     if (kind === 'voice') setTimeout(() => { if (G.GrowVoice) G.GrowVoice.onClick('voiceAsk', document.body); }, 700);
-    else toast('Demo client: Liza Dela Peña · try Passport, Business Plan, Finance, Loan → My Loan, Docs.', 'ok');
+    else if (kind === 'new') toast('Demo 2 · New Applicant: Rosa Mendoza · see Loan → My Loan for the Loan Status tracker.', 'ok');
+    else toast('Demo 1 · Active borrower: Liza Dela Peña · outstanding balance, so a reloan is blocked until full payment.', 'ok');
   }
   function exitDemo() { S.demo = null; location.hash = ''; location.reload(); }
 
@@ -1404,6 +1436,7 @@
       if (!S.profile) return location.reload();
       route();
     });
+    G.addEventListener('resize', () => { if ($('.side')) syncLayout(); });
     G.addEventListener('online', () => { S.online = true; renderSyncPill(); sync(); if (S.profile) finishPendingSignup(); });
     G.addEventListener('offline', () => { S.online = false; renderSyncPill(); });
   }

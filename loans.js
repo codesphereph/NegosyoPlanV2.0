@@ -29,6 +29,25 @@
     return cache;
   }
   function hasLoans() { return !!(cache && cache.loans && cache.loans.length); }
+  /* client type: Active (has an outstanding EMBRACE balance — cannot reloan), Fully Paid (may reloan), New Applicant (no EMBRACE loan yet) */
+  function clientType() {
+    const L = (cache && cache.loans) || [];
+    const active = L.filter((l) => Number(l.balance) > 0.5);
+    if (active.length) return { type: 'Active', balance: active.reduce((s, l) => s + Number(l.balance), 0), loan: active[0] };
+    if (L.length) return { type: 'Fully Paid', balance: 0 };
+    return { type: 'New Applicant', balance: 0 };
+  }
+  function activeLoan() { const c = clientType(); return c.type === 'Active' ? c : null; }
+  function typeBadge(c) {
+    c = c || clientType();
+    const cls = { Active: 'ct-active', 'Fully Paid': 'ct-paid', 'New Applicant': 'ct-new' }[c.type];
+    return `<span class="ct-badge ${cls}">${ic(c.type === 'Active' ? 'loan' : c.type === 'New Applicant' ? 'sprout' : 'check')} ${esc(c.type)}</span>`;
+  }
+  function activeNotice(c) {
+    return `<div class="reloan-block">${ic('lock')}<div><b>You have an active EMBRACE loan</b><p>Outstanding balance: <b>${peso(c.balance)}</b>${c.loan && c.loan.next ? ` · next payment ${peso(c.loan.next.amount)} due ${fd(c.loan.next.due)}` : ''}.</p>
+      <p class="small">A new EMBRACE loan (reloan) can be applied for only after your current loan is <b>fully paid</b>. You can keep updating your Passport, Business Plan and Financial Statements in the meantime.</p>
+      <a class="btn sm ghost" href="#loan/account">${ic('loan')} See My Loan</a></div></div>`;
+  }
 
   /* ---------- Home card ---------- */
   function homeCard() {
@@ -62,8 +81,10 @@
     }).join('');
     const top = st === 'Draft' ? `<p class="muted">You have not submitted an EMBRACE application yet.</p><a class="btn" href="#loan/apply">${ic('send')} Prepare and submit my application</a>`
       : `<p class="ls-now">Current status: <span class="st st-${esc(st.replace(/\s/g, ''))}">${esc(st)}</span>${rv.applicantNo ? ` · Applicant No. <b>${esc(rv.applicantNo)}</b>` : ''}</p>`;
-    return `<section class="form-card ls-card"><div class="loan-head"><h2>${ic('send')} Loan Status</h2>${S.session ? `<button class="btn sm ghost" data-act="lnStatus">${ic('cloud')} Refresh</button>` : ''}</div>
-      ${top}${st !== 'Draft' ? `<ol class="ls-steps">${steps}</ol>` : ''}${ivHtml}
+    const ct = clientType();
+    return `<section class="form-card ls-card"><div class="loan-head"><h2>${ic('send')} Loan Status ${typeBadge(ct)}</h2>${S.session ? `<button class="btn sm ghost" data-act="lnStatus">${ic('cloud')} Refresh</button>` : ''}</div>
+      ${ct.type === 'Active' ? `<p class="ls-now">Loan Status: <b class="ct-text">Active</b> — outstanding balance <b>${peso(ct.balance)}</b>. A reloan is possible after full payment.</p>` : ct.type === 'New Applicant' ? `<p class="ls-now small muted">New Applicant — first EMBRACE loan.</p>` : `<p class="ls-now small muted">Your previous EMBRACE loan is fully paid — you may apply again.</p>`}
+      ${ct.type === 'Active' && st === 'Draft' ? '' : top}${st !== 'Draft' ? `<ol class="ls-steps">${steps}</ol>` : ''}${ivHtml}
       ${rv.remarks && st !== 'Draft' ? `<p class="hint">${ic('alert')} OLEDIPO remarks: ${esc(rv.remarks)}</p>` : ''}
       <p class="muted small">This app does not guarantee loan approval. Final evaluation is done by the EMBRACE Technical Working Group.</p></section>`;
   }
@@ -166,5 +187,5 @@
     return false;
   }
 
-  G.GrowLoans = { load, hasLoans, homeCard, view, after, onClick, statementDoc };
+  G.GrowLoans = { load, hasLoans, clientType, activeLoan, typeBadge, activeNotice, homeCard, view, after, onClick, statementDoc };
 })(window);

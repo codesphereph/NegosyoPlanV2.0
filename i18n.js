@@ -5,7 +5,7 @@
     // navigation
     'Home': ['Home', 'Puloy-an'],
     'Passport': ['Passport', 'Passport'],
-    'Finance': ['Pinansiyal', 'Pinansyal'],
+    'Financial Statement': ['Financial Statement', 'Financial Statement'],
     'Loan': ['Pautang', 'Utang'],
     'Docs': ['Dokumento', 'Dokumento'],
     'Settings': ['Settings', 'Settings'],

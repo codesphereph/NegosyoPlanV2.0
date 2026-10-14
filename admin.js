@@ -57,19 +57,22 @@
     }
     const L = st().list, f = (st().filter || '').toLowerCase(), sf = st().status || '';
     const counts = {}; L.forEach((x) => { counts[x.status || 'Draft'] = (counts[x.status || 'Draft'] || 0) + 1; });
-    const rows = L.filter((x) => (!sf || x.status === sf) && (!f || [x.passportId, x.name, x.business, x.contact].join(' ').toLowerCase().indexOf(f) >= 0))
+    const tf = st().ctype || '';
+    const rows = L.filter((x) => (!tf || x.clientType === tf) && (!sf || x.status === sf) && (!f || [x.passportId, x.name, x.business, x.contact].join(' ').toLowerCase().indexOf(f) >= 0))
       .sort((a, b) => String(b.submittedAt || b.updatedAt).localeCompare(String(a.submittedAt || a.updatedAt)));
     main.innerHTML = tabsBar('apps') + `<div class="page-head"><div><h1>NegosyoPlan Applications</h1><p class="muted">${L.length} passports · ${L.filter((x) => x.consent).length} shared with OLEDIPO</p></div>
       <div class="btns"><button class="btn ghost" data-act="adRefresh">Refresh</button><button class="btn ghost" data-act="adExport">${ic('down')} CSV</button>${st().sheetUrl ? `<a class="btn ghost" href="${esc(st().sheetUrl)}" target="_blank" rel="noopener">Open Google Sheet</a>` : ''}<button class="btn ghost" data-act="adLogout">Sign out</button></div></div>
       <div class="stats">${(st().statuses || []).map((s) => `<button class="stat ${sf === s ? 'hl' : ''}" data-act="adStatus" data-s="${esc(s)}"><span>${esc(s)}</span><b>${counts[s] || 0}</b></button>`).join('')}</div>
       <div class="row"><div class="fld w3"><label for="adSearch">Search</label><input id="adSearch" value="${esc(st().filter || '')}" placeholder="Name, business, Passport ID, mobile"></div>
-        <div class="fld"><label>Status</label><select id="adStatusSel"><option value="">All</option>${(st().statuses || []).map((s) => `<option ${s === sf ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div></div>
-      <div class="scroll"><table class="tbl admin"><tr><th>Passport ID</th><th>Name</th><th>Business</th><th>Dist.</th><th class="r">Loan</th><th class="r">Complete</th><th>Status</th><th>Submitted</th><th></th></tr>
-      ${rows.map((x) => `<tr><td><code>${esc(x.passportId)}</code></td><td>${esc(x.name || '—')}</td><td>${esc(x.business || '—')}</td><td>${esc(x.district)}</td><td class="r">${x.loanAmount ? C.peso(Number(x.loanAmount), 0) : ''}</td>
+        <div class="fld"><label>Status</label><select id="adStatusSel"><option value="">All</option>${(st().statuses || []).map((s) => `<option ${s === sf ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
+        <div class="fld"><label for="adTypeSel">Client type</label><select id="adTypeSel"><option value="">All</option>${['New Applicant', 'Active', 'Fully Paid'].map((x) => `<option ${x === tf ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
+      <div class="scroll"><table class="tbl admin"><tr><th>Passport ID</th><th>Name</th><th>Client</th><th>Business</th><th>Dist.</th><th class="r">Loan</th><th class="r">Complete</th><th>Status</th><th>Submitted</th><th></th></tr>
+      ${rows.map((x) => `<tr><td><code>${esc(x.passportId)}</code></td><td>${esc(x.name || '—')}</td><td>${x.clientType ? `<span class="ct-badge ${{ Active: 'ct-active', 'Fully Paid': 'ct-paid', 'New Applicant': 'ct-new' }[x.clientType] || ''}">${esc(x.clientType)}</span>` : ''}</td><td>${esc(x.business || '—')}</td><td>${esc(x.district)}</td><td class="r">${x.loanAmount ? C.peso(Number(x.loanAmount), 0) : ''}</td>
         <td class="r">${x.completeness !== '' && x.completeness != null ? esc(x.completeness) + '%' : ''}</td><td><span class="st st-${esc(String(x.status).replace(/\s/g, ''))}">${esc(x.status)}</span></td><td>${x.submittedAt ? new Date(x.submittedAt).toLocaleDateString() : ''}</td>
         <td>${x.consent ? `<button class="btn sm" data-act="adOpen" data-id="${esc(x.passportId)}">Open</button>` : '<small class="muted">no consent</small>'}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">No applicants found.</td></tr>'}</table></div>`;
     const s = $('#adSearch'); s.oninput = () => { st().filter = s.value; const pos = s.selectionStart; listView(main).then(() => { const n = $('#adSearch'); n.focus(); n.setSelectionRange(pos, pos); }); };
     $('#adStatusSel').onchange = (e) => { st().status = e.target.value; listView(main); };
+    $('#adTypeSel').onchange = (e) => { st().ctype = e.target.value; listView(main); };
   }
 
   function detailView(main) {
@@ -79,6 +82,7 @@
     const vbox = (id, label) => `<label class="toggle"><input type="checkbox" data-ver="${esc(id)}" ${ver[id] ? 'checked' : ''}> ${esc(label)} ${ver[id] ? `<small class="muted">(by ${esc(ver[id].by)} ${new Date(ver[id].at).toLocaleDateString()})</small>` : ''}</label>`;
     main.innerHTML = `<div class="page-head"><div><button class="btn sm ghost" data-act="adBack">${ic('arrowL')} All applications</button><h1>${esc(C.fullName(p.owner) || d.passportId)}</h1>
         <p class="muted"><code>${esc(d.passportId)}</code> · ${esc(p.business.name)} · ${esc(p.owner.contact)} · Readiness ${ov.pct}%</p></div></div>
+      ${d.clientType ? `<div class="${d.clientType.type === 'Active' ? 'reloan-block' : 'hint'}">${ic(d.clientType.type === 'Active' ? 'lock' : 'check')}<div><b>Client type: ${esc(d.clientType.type)}</b>${d.clientType.type === 'Active' ? ` — outstanding balance ₱${Number(d.clientType.balance).toLocaleString('en-PH')} (${esc(d.clientType.loanId)}). Reloan not allowed until fully paid.` : d.clientType.type === 'New Applicant' ? ' — first EMBRACE loan.' : ' — previous loan fully paid; may reloan.'}</div></div>` : ''}
       <div class="grid2"><div class="form-card"><h2>Application</h2>
         <div class="stats"><div class="stat"><span>Loan applied</span><b>${pc.loan.amount ? C.peso(pc.loan.amount) : '—'}</b></div><div class="stat"><span>Term / monthly</span><b>${pc.loan.term ? pc.loan.term + ' mo · ' + C.peso(pc.loan.monthly) : '—'}</b></div>
           <div class="stat"><span>Projected net / month</span><b>${C.peso(pc.netM)}</b></div><div class="stat"><span>Coverage</span><b>${pc.dscr == null ? '—' : pc.dscr.toFixed(2) + '×'}</b></div>
@@ -229,14 +233,15 @@
         case 'adStatus': st().status = st().status === b.dataset.s ? '' : b.dataset.s; render(); break;
         case 'adOpen': {
           const r = await API.call({ action: 'adminGet', token: tokenGet(), passportId: b.dataset.id });
-          st().current = { passportId: b.dataset.id, profile: r.profile, review: r.review, documentsFolderUrl: r.documentsFolderUrl }; render(); window.scrollTo(0, 0); break;
+          st().current = { passportId: b.dataset.id, profile: r.profile, review: r.review, documentsFolderUrl: r.documentsFolderUrl, clientType: r.clientType }; render(); window.scrollTo(0, 0); break;
         }
         case 'adBack': st().current = null; render(); break;
         case 'adDashRefresh': st().dash = null; render(); break;
         case 'adWeek': { const u = st().dashUi; const d = Number(b.dataset.d); u.week = d === 0 ? 0 : Math.min(0, (u.week || 0) + d); render(); break; }
         case 'adIvDay': { const u = st().dashUi, base = u.ivDay ? new Date(u.ivDay + 'T00:00:00') : new Date(); base.setDate(base.getDate() + Number(b.dataset.d));
           u.ivDay = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0') + '-' + String(base.getDate()).padStart(2, '0'); render(); break; }
-        case 'adGoStatus': st().tab = 'apps'; st().status = b.dataset.s; st().current = null; render(); window.scrollTo(0, 0); break;
+        case 'adGoType': st().tab = 'apps'; st().status = ''; st().ctype = b.dataset.s; st().current = null; render(); window.scrollTo(0, 0); break;
+        case 'adGoStatus': st().tab = 'apps'; st().ctype = '';  st().status = b.dataset.s; st().current = null; render(); window.scrollTo(0, 0); break;
         case 'adTabS': st().tab = b.dataset.s; st().current = null; st().loan = null; render(); window.scrollTo(0, 0); break;
         case 'adTab': st().tab = b.dataset.t; st().current = null; st().loan = null; render(); break;
         case 'adLoansRefresh': st().loans = null; render(); break;

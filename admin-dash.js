@@ -23,6 +23,8 @@
   const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
   const stage = (s) => (s === 'Disapproved' ? PIPE.indexOf('For TWG Evaluation') : PIPE.indexOf(s));
 
+  const CT = { Active: 'ct-active', 'Fully Paid': 'ct-paid', 'New Applicant': 'ct-new' };
+  const ctBadge = (t) => (t ? `<span class="ct-badge ${CT[t] || ''}">${esc(t)}</span>` : '');
   function tile(label, value, sub, opts) {
     opts = opts || {};
     return `<${opts.act ? 'button' : 'div'} class="dtile ${opts.cls || ''}" ${opts.act ? `data-act="${opts.act}" data-s="${esc(opts.s || '')}"` : ''}>
@@ -95,6 +97,9 @@
     const signupsWeek = apps.filter((a) => a.createdAt && new Date(a.createdAt) >= sunday(now)).length;
     const ivToday = apps.filter((a) => a.interview && a.interview.at && sameDay(a.interview.at, now)).length;
     const wkLabel = fdate(days[0], { month: 'long', day: 'numeric' }) + ' – ' + fdate(days[6], { month: 'long', day: 'numeric', year: 'numeric' });
+    const inPipe = subs.filter((a) => ['Approved', 'Released', 'Fully Paid', 'Disapproved'].indexOf(a.status) < 0);
+    const newApps = inPipe.filter((a) => a.clientType === 'New Applicant').length, reloanBlocked = inPipe.filter((a) => a.clientType === 'Active');
+    const activeBorrowers = loans.filter((l) => l.balance > 0.5).length;
 
     return `<div class="page-head"><div><h1>Dashboard</h1><p class="muted">${esc(now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))} · NegosyoPlan is open 24/7</p></div>
         <div class="btns"><button class="btn ghost" data-act="adDashRefresh">${ic('cloud')} Refresh</button></div></div>
@@ -103,6 +108,8 @@
         ${tile('Pending Upon Review', num(sc['Pending Upon Review'] || 0), 'waiting for first review', { icon: 'alert', act: 'adGoStatus', s: 'Pending Upon Review' })}
         ${tile('Documents on Review', num(sc['Submitted Documents on Review'] || 0), 'being checked', { icon: 'docs', act: 'adGoStatus', s: 'Submitted Documents on Review' })}
         ${tile('Interviews today', num(ivToday), `${num(sc['Scheduled for Interview'] || 0)} scheduled in total`, { icon: 'users', act: 'adGoStatus', s: 'Scheduled for Interview' })}
+        ${tile('New Applicants', num(newApps), 'first-time applicants in process', { icon: 'sprout', act: 'adGoType', s: 'New Applicant' })}
+        ${tile('Active borrowers', num(activeBorrowers), reloanBlocked.length ? `<b>${reloanBlocked.length}</b> applied again with a balance — reloan not allowed` : 'outstanding balance · no reloan until paid', { icon: 'loan', cls: reloanBlocked.length ? 'warn' : '', act: 'adGoType', s: 'Active' })}
         ${tile('New sign-ups this week', num(signupsWeek), `${num(apps.length)} accounts in total`, { icon: 'id' })}
         ${tile('Outstanding loans', pesoK(out.reduce((s, l) => s + l.balance, 0)), `${num(out.length)} active loan${out.length === 1 ? '' : 's'}`, { icon: 'loan', act: 'adTabS', s: 'loans' })}
         ${tile('Past due', num(pastDue.length), pastDue.length ? peso(pastDue.reduce((s, l) => s + l.arrears, 0)) + ' unpaid amortizations' : 'all loans on time', { icon: 'alert', cls: pastDue.length ? 'warn' : '', act: 'adTabS', s: 'loans' })}
@@ -113,7 +120,7 @@
           <input type="date" id="adIvDate" value="${ymd(ivDay)}" aria-label="Interview date"><button class="icon-btn" data-act="adIvDay" data-d="1" aria-label="Next day">${ic('arrowR')}</button></div></div>
         <p class="muted small">${esc(ivDay.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))} · ${ivs.length} interview${ivs.length === 1 ? '' : 's'}</p>
         <div class="scroll"><table class="tbl admin"><tr><th>Time</th><th>Applicant</th><th>Business</th><th>Mobile</th><th class="r">Loan</th><th>Venue</th><th>Status</th><th></th></tr>
-        ${ivs.map((a) => `<tr><td><b>${esc(new Date(a.interview.at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }))}</b></td><td>${esc(a.name || '—')}${a.no ? `<br><small>No. ${esc(a.no)}</small>` : ''}</td>
+        ${ivs.map((a) => `<tr><td><b>${esc(new Date(a.interview.at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }))}</b></td><td>${esc(a.name || '—')} ${ctBadge(a.clientType)}${a.no ? `<br><small>No. ${esc(a.no)}</small>` : ''}</td>
           <td>${esc(a.business || '—')}</td><td>${a.mobile ? `<a href="tel:${esc(a.mobile)}">${esc(a.mobile)}</a>` : '—'}</td><td class="r">${a.amount ? peso(a.amount) : ''}</td>
           <td>${esc(a.interview.venue || '')}</td><td><span class="st st-${esc(String(a.status).replace(/\s/g, ''))}">${esc(a.status)}</span></td>
           <td><button class="btn sm" data-act="adOpen" data-id="${esc(a.id)}">Open</button></td></tr>`).join('') || `<tr><td colspan="8" class="muted">No interviews scheduled for this day.</td></tr>`}</table></div></section>
@@ -173,8 +180,14 @@
     const vRev = vPaid.reduce((s, o) => s + o.amount, 0);
     const sampleNote = loans.some((l) => l.sample) ? '<p class="hint small">' + ic('alert') + ' Loan figures include SAMPLE data. Delete the SAMPLE rows before going live.</p>' : '';
 
+    // client type: New Applicant / Active (outstanding balance) / Fully Paid
+    const ctRows = ['New Applicant', 'Active', 'Fully Paid'].map((t) => ({ label: t === 'Active' ? 'Active (outstanding balance)' : t === 'Fully Paid' ? 'Fully Paid (may reloan)' : t, v: subs.filter((a) => a.clientType === t).length }));
+    const blocked = subs.filter((a) => a.clientType === 'Active' && ['Approved', 'Released', 'Fully Paid', 'Disapproved'].indexOf(a.status) < 0);
+    const newShare = pct(ctRows[0].v, subs.length);
     // key insights in plain language
     const K = [];
+    if (subs.length) K.push(`<b>${newShare}%</b> of online applications come from <b>New Applicants</b> (first EMBRACE loan); ${num(ctRows[2].v)} from fully paid borrowers applying again.`);
+    if (blocked.length) K.push(`<b>${num(blocked.length)}</b> application${blocked.length === 1 ? ' is' : 's are'} from <b>Active</b> borrowers who still have an outstanding balance. Reloans are not allowed until full payment, so these should not be processed.`);
     if (apps.length) K.push(`<b>${pct(subs.length, apps.length)}%</b> of accounts have submitted an application (${num(subs.length)} of ${num(apps.length)}).`);
     if (ready.length) K.push(`<b>${num(ready.length)}</b> applicant${ready.length === 1 ? ' has' : 's have'} a draft that is at least 80% complete but not submitted yet. A reminder call could turn these into submissions.`);
     if (stuck.length) K.push(`<b>${num(stuck.length)}</b> submitted application${stuck.length === 1 ? ' is' : 's are'} waiting 3 days or more for review (longest: ${stuck[0].wait} days).`);
@@ -189,6 +202,11 @@
       <section class="form-card insight-key"><h2>${ic('bulb')} Key insights</h2>${K.length ? `<ul>${K.map((k) => `<li>${k}</li>`).join('')}</ul>` : '<p class="muted">Not enough data yet.</p>'}</section>
       <div class="grid2">
         <section class="form-card"><h2>${ic('send')} Application funnel</h2>${hbars(funnel)}<p class="muted small">Each step counts applicants who reached at least that stage; the % is the share of the previous step.</p></section>
+        <section class="form-card"><h2>${ic('users')} Who is applying</h2>${hbars(ctRows)}
+          <p class="muted small">New Applicant = no EMBRACE loan yet · Active = has an outstanding balance (reloan not allowed until fully paid) · Fully Paid = previous loan completed.</p>
+          ${blocked.length ? `<h3>Active borrowers who applied again</h3><ul class="flist">${blocked.slice(0, 6).map((a) => `<li><button class="link-btn" data-act="adOpen" data-id="${esc(a.id)}">${esc(a.name || a.id)}</button> <span class="muted">balance ${peso(a.balance)} · ${esc(a.status)}</span></li>`).join('')}</ul>` : ''}</section>
+      </div>
+      <div class="grid2">
         <section class="form-card"><h2>${ic('alert')} Needs follow-up</h2>
           <h3>Waiting 3+ days for review</h3>${stuck.length ? `<ul class="flist">${stuck.slice(0, 6).map((a) => `<li><button class="link-btn" data-act="adOpen" data-id="${esc(a.id)}">${esc(a.name || a.id)}</button> <span class="muted">${esc(a.status)} · ${a.wait} days</span></li>`).join('')}</ul>` : '<p class="muted small">None. Reviews are on time.</p>'}
           <h3>Ready drafts to remind (≥ 80% complete)</h3>${ready.length ? `<ul class="flist">${ready.slice(0, 6).map((a) => `<li><b>${esc(a.name || a.id)}</b> <span class="muted">${a.completeness}%${a.mobile ? ` · <a href="tel:${esc(a.mobile)}">${esc(a.mobile)}</a>` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">None right now.</p>'}</section>

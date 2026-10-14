@@ -46,8 +46,8 @@
           <p class="lp-text">Prepare your <b>business plan</b> and <b>financial statements</b> step by step, keep your <b>MSME Enterprise Passport</b> and get your <b>EMBRACE loan requirements</b> ready — even without internet.</p>
           <div class="land-feats"><span>✓ Works offline</span><span>✓ English · Filipino · Hiligaynon</span></div>
           ${CFG().DEMO ? `<div class="demo-btns" role="group" aria-label="Demo">
-            <button type="button" class="btn-demo" id="demoClient"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.7-2 2-3 3.5-3s2.8 1 3.5 3M14 10h5M14 13h4"/></svg><span><b>Demo</b> client account</span></button>
-            <button type="button" class="btn-demo" id="demoVoice"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg><span><b>Demo</b> Voice to Text</span></button></div>` : ''}
+            <button type="button" class="btn-demo" id="demoClient"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/></svg><span><b>Demo 1</b> Active borrower</span></button>
+            <button type="button" class="btn-demo" id="demoNew"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V11"/><path d="M12 11C12 6 8 3 3 3c0 5 4 8 9 8zM12 13c0-4 3-7 9-7 0 4-3 7-9 7z"/></svg><span><b>Demo 2</b> New applicant</span></button></div>` : ''}
           <p class="grow-by">Office of the Local Economic Development and Investment Promotion Officer · Iloilo Province<br>
             <button type="button" class="link-btn" id="installLink" hidden>Install app</button></p>
           <button type="button" class="ledip-btn on-dark" id="staffBtn" aria-label="NegosyoPlan Admin — log in"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"></button>
@@ -60,6 +60,7 @@
     const demo = (kind) => { if (G.GrowInstall) G.GrowInstall.hide(false); const l = document.getElementById('landing'); l.classList.add('leaving'); setTimeout(() => G.GrowApp.startDemo(kind), 350); };
     const dc = document.getElementById('demoClient'), dv = document.getElementById('demoVoice');
     if (dc) dc.onclick = () => demo('client');
+    const dn = document.getElementById('demoNew'); if (dn) dn.onclick = () => demo('new');
     if (dv) dv.onclick = () => demo('voice');
     document.getElementById('staffBtn').onclick = (e) => { e.preventDefault(); if (G.GrowInstall) G.GrowInstall.hide(false); if (G.GrowAdmin && G.GrowAdmin.loginModal) G.GrowAdmin.loginModal(); else { location.hash = '#admin'; if (onStaff) onStaff(); } };
     const il = document.getElementById('installLink');
