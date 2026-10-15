@@ -10,7 +10,7 @@ window.GROW_CONFIG = {
   SPLASH_MS: 2300, // length of the opening animation
   OFFICE: 'Office of the Local Economic Development and Investment Promotion Officer (OLEDIPO)',
   LGU: 'Provincial Government of Iloilo',
-  VERSION: '4.12.0',
+  VERSION: '4.12.1',
   /* Demo buttons on the landing page (for presentations). Set to false to hide them in production. */
   DEMO: true,
   /* Online processing fee: charged when the loan is released, deducted together with the 3% service fee. */

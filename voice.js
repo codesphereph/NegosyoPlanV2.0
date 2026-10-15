@@ -210,7 +210,6 @@
       if (rec !== R) return; // closed meanwhile
       review(R.ctx, r);
     } catch (e) {
-      if (isDemo()) return demoReview();
       if (lockedErr(e)) return;
       setState(`<span class="err">${A().ic('alert')} ${esc(e.message)}</span>`);
       const m = $('#micBig'); if (m) m.disabled = false;
@@ -359,12 +358,14 @@
     if (!v) v = { number: '1000', date: '2020-01-15', choice: (f.options[0] || '').split('=')[0], multi: (f.options[0] || ''), text: 'This is a sample spoken answer for “' + f.label + '”.' }[f.type] || 'Sample answer';
     let val = normValue(f, v);
     if (val != null && f.type === 'multi') val = Array.from(new Set((A().getPath(S().profile, f.path) || []).concat(val)));
-    return { value: val, transcript: '(demo — simulated speech) ' + (Array.isArray(val) ? val.join(', ') : val), note: val == null ? 'Demo could not simulate this box.' : '', simulated: true };
+    return { value: val, transcript: '(SAMPLE ANSWER — not from your voice: no internet or no server) ' + (Array.isArray(val) ? val.join(', ') : val), note: val == null ? 'Demo could not simulate this box.' : '', simulated: true };
   }
   async function askServer(f, blob) {
     if (isDemo()) {
+      // Simulated sample answers are used ONLY when there is no server or no internet (clearly labelled).
+      // A real server error is shown as an error, never covered up with the sample business (Liza Dela Peña).
       if (!blob || !API().configured() || !navigator.onLine) { await new Promise((r) => setTimeout(r, 900)); return simulate(f); }
-      try { return await askServerReal(f, blob, true); } catch (e) { return simulate(f); }
+      return askServerReal(f, blob, true);
     }
     return askServerReal(f, blob, false);
   }
@@ -406,10 +407,7 @@
     fieldRec = { path, r };
     try { await r.start(); } catch (e) {
       fieldRec = null;
-      if (!isDemo()) return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err');
-      bubble(path, `<b class="rec-dot"></b> ${t('Listening…')} (demo)`, 'rec'); await new Promise((x) => setTimeout(x, 1600));
-      const out = simulate(f); if (out.value == null) return bubble(path, esc(out.note), 'err');
-      write(path, out.value); return bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} <small>(demo — simulated)</small>`, 'ok');
+      return bubble(path, `${A().ic('alert')} ${micDenied}`, 'err');
     }
     const b = micBtn(path); if (b) b.classList.add('on');
     let res;
@@ -424,7 +422,7 @@
       write(path, out.value);
       const el = $(`#main [data-bind="${CSS.escape(path)}"], #main [data-arr="${CSS.escape(path)}"]`); const fld = el && el.closest('.fld');
       if (fld) { fld.classList.add('voice-filled'); setTimeout(() => fld.classList.remove('voice-filled'), 2200); }
-      bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} ${out.simulated ? '<small class="demo-tag">demo — simulated</small> ' : ''}<button type="button" class="link-btn" data-act="voiceUndo">${t('Undo')}</button>`, 'ok');
+      bubble(path, `${A().ic('check')} ${t('Written. Please check it.')} ${out.simulated ? '<small class="demo-tag">sample answer — not from your voice</small> ' : ''}<button type="button" class="link-btn" data-act="voiceUndo">${t('Undo')}</button>`, 'ok');
     } catch (e) { if (lockedErr(e)) return; bubble(path, `${A().ic('alert')} ${esc(e.message)}`, 'err'); }
   }
 
@@ -480,9 +478,7 @@
     Q.r = r;
     try { await r.start(); } catch (e) {
       Q.r = null;
-      if (!isDemo()) return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`);
-      Q.busy = true; setSt(`<b class="rec-dot"></b> ${t('Listening…')} (demo)`); await new Promise((x) => setTimeout(x, 1600));
-      Q.busy = false; return qWrite(f, simulate(f), my);
+      return setSt(`<span class="err">${A().ic('alert')} ${micDenied}</span>`);
     }
     const m = $('#qMic'); if (m) m.classList.add('on');
     let res; try { res = await r.done; } catch (e) { return; }
@@ -512,7 +508,7 @@
         $('#qResult').innerHTML = `<div class="q-answer">${ed}<small class="muted">${t('You can correct it here.')} ${t('heard')}: “${esc(out.transcript)}”</small></div>`;
         const e = $('#qEdit'); if (e) e.oninput = () => { let v = e.value; if (f.type === 'number') v = v.replace(/[₱,\s]/g, ''); A().setPath(S().profile, f.path, v); A().touch(); };
         const nb = $('[data-act=voiceQNext]'); if (nb) nb.focus();
-        if (out.simulated) { const st = $('#qState'); if (st) st.insertAdjacentHTML('beforeend', ' <small class="demo-tag">demo — simulated</small>'); }
+        if (out.simulated) { const st = $('#qState'); if (st) st.insertAdjacentHTML('beforeend', ' <small class="demo-tag">sample answer — not from your voice</small>'); }
       }
     }
   }
