@@ -38,6 +38,10 @@ code { background: var(--g0); padding: 0 4px; border-radius: 4px; font-size: .9e
 .brand small { display: block; font-size: .68rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
 .top-r { display: flex; align-items: center; gap: 6px; }
 .top .icon-btn { color: #fff; }
+.top-home { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; flex: none; }
+.top-home:hover { background: rgba(255, 255, 255, .22); } .top-home:active { transform: scale(.97); }
+.top-home .ic, .top-home svg { width: 18px; height: 18px; }
 .pill { display: inline-flex; align-items: center; gap: 4px; font-size: .75rem; padding: 4px 9px; border-radius: 99px; background: rgba(255, 255, 255, .14); max-width: 40vw; }
 .pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill.ok { background: var(--e-green); } .pill.warn { background: #b7791f; } .pill.off { background: #5b6660; }
@@ -571,6 +575,8 @@ body:has(.landing2) #toasts { bottom: auto; top: calc(14px + env(safe-area-inset
   .top .lang .ic { display: none; }
   .top .lang select { max-width: 64px; }
   .top-r { gap: 2px; }
+  .top-home { padding: 0; width: 40px; justify-content: center; }
+  .top-home span { display: none; }
 }
 
 /* =====================================================================
@@ -932,3 +938,26 @@ h2.mt { margin-top: 18px; }
   .side a { flex: none; }
   .side-foot { flex: none; }
 }
+
+/* ---------- loan points + processing fee */
+.pts-card { border-left: 5px solid var(--e-yellow, #F7C41A); }
+.pts-card.pts-ok { border-left-color: var(--e-green, #2EA54F); }
+.pts-head { display: flex; gap: 16px; align-items: center; }
+.pts-ring { --p: 0; flex: none; width: 96px; height: 96px; border-radius: 50%; display: grid; place-content: center; text-align: center;
+  background: radial-gradient(closest-side, #fff 78%, transparent 79%), conic-gradient(#F7C41A calc(var(--p) * 1%), #e8edf3 0); }
+.pts-ok .pts-ring { background: radial-gradient(closest-side, #fff 78%, transparent 79%), conic-gradient(#2EA54F calc(var(--p) * 1%), #e8edf3 0); }
+.pts-ring b { font-size: 1.6rem; line-height: 1; color: #10264f; font-variant-numeric: tabular-nums; } .pts-ring small { color: #5b6880; font-size: .78rem; }
+.pts-txt h2 { margin: 0 0 4px; } .pts-txt p { margin: 2px 0; }
+.pts-bar { height: 8px; border-radius: 4px; background: #e8edf3; overflow: hidden; margin: 12px 0 6px; } .pts-bar i { display: block; height: 100%; background: #F7C41A; border-radius: 4px; } .pts-ok .pts-bar i { background: #2EA54F; }
+.pts-list { margin-top: 10px; }
+.pst { font-size: .75rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; } .pst-verified { background: #e3f4e8; color: #1d6b35; } .pst-pending { background: #fff3c4; color: #6b4d00; } .pst-rejected { background: #fdecec; color: #a12b2b; }
+.pts-preview { font-size: 1.05rem; } .pts-preview b { color: #123A8C; font-size: 1.3rem; }
+.pts-here { margin-top: 4px; }
+.fee-box { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; padding: 12px 14px; border-radius: 12px; background: #eef4fb; border: 1px solid #c9dbf2; }
+.fee-box > .ic { flex: none; width: 22px; height: 22px; color: #123A8C; margin-top: 2px; }
+@media (max-width: 520px) { .pts-head { flex-direction: column; align-items: flex-start; } }
+
+/* Marketplace: merchant logo image and website link */
+.mk-logo.img { padding: 0; overflow: hidden; background: #fff; }
+.mk-logo.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mk-web { margin-top: 4px; }

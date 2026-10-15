@@ -14,6 +14,7 @@
     const c = [];
     if (m.phone) c.push(`<a class="btn sm" href="tel:${esc(m.phone.replace(/\s/g, ''))}">${A().ic('send')} ${t('Call')} ${esc(m.phone)}</a>`);
     if (m.email) c.push(`<a class="btn sm ghost" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Inquiry from NegosyoPlan')}">${t('Email')}</a>`);
+    if (m.website) c.push(`<a class="btn sm" href="${esc(/^https?:/.test(m.website) ? m.website : 'https://' + m.website)}" target="_blank" rel="noopener">${A().ic('globe')} ${t('Visit website')}</a>`);
     if (m.facebook) c.push(`<a class="btn sm ghost" href="${esc(/^https?:/.test(m.facebook) ? m.facebook : 'https://' + m.facebook)}" target="_blank" rel="noopener">Facebook</a>`);
     return c.length ? `<div class="btns">${c.join('')}</div>` : `<p class="muted small">${A().ic('alert')} ${t('Contact details coming soon. Ask the LEDIP Center (OLEDIPO) to connect you.')}</p>`;
   }
@@ -22,12 +23,14 @@
     const shown = list().filter((m) => !filter || m.category === filter);
     return `<div class="page-head"><div><h1>${t('Marketplace')}</h1><p class="muted">${t('External Support Services and other merchants for your business')}</p></div>
         <div class="btns"><button class="btn" data-act="mkInvite">${A().ic('users')} ${t('Invite a merchant')}</button></div></div>
+      ${G.GrowPoints ? G.GrowPoints.card('market') : ''}
       <div class="tabs" role="tablist"><button class="${!filter ? 'on' : ''}" data-act="mkFilter" data-c="">${t('All')}</button>${cats.map((c) => `<button class="${filter === c ? 'on' : ''}" data-act="mkFilter" data-c="${esc(c)}">${esc(t(c))}</button>`).join('')}</div>
       <div class="mk-grid">${shown.map((m) => `<article class="card mk" style="--mk:${esc(m.color || '#123A8C')}">
-        <div class="mk-top"><span class="mk-logo" aria-hidden="true">${initials(m.name)}</span><div><span class="mk-cat">${A().ic(m.icon || 'docs')} ${esc(t(m.category))}</span><h3>${esc(m.name)}</h3></div></div>
+        <div class="mk-top">${m.logo ? `<span class="mk-logo img" aria-hidden="true"><img src="${esc(m.logo)}" alt="" width="52" height="52" loading="lazy"></span>` : `<span class="mk-logo" aria-hidden="true">${initials(m.name)}</span>`}<div><span class="mk-cat">${A().ic(m.icon || 'docs')} ${esc(t(m.category))}</span><h3>${esc(m.name)}</h3></div></div>
         <p class="mk-tag">${esc(m.tagline || '')}</p>
         <ul class="mk-svc">${(m.services || []).map((x) => `<li>${A().ic('check')} ${esc(x)}</li>`).join('')}</ul>
-        ${m.address ? `<p class="small">${esc(m.address)}</p>` : ''}${contacts(m)}</article>`).join('')}
+        ${m.address ? `<p class="small">${esc(m.address)}</p>` : ''}${contacts(m)}
+        <button type="button" class="btn sm ghost pts-here" data-act="ptsClaim" data-m="${esc(m.id)}">${A().ic('plus')} I bought here · earn points</button></article>`).join('')}
         <article class="card mk mk-join"><div class="mk-top"><span class="mk-logo plus" aria-hidden="true">+</span><div><span class="mk-cat">${t('For merchants')}</span><h3>${t('List your business here')}</h3></div></div>
           <p class="mk-tag">${t('Offer your services to micro-entrepreneurs and EMBRACE applicants across Iloilo.')}</p>
           <div class="btns"><button class="btn" data-act="mkInvite">${t('Subscribe as a merchant')}</button></div></article></div>

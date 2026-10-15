@@ -23,6 +23,7 @@
     if (st().tab === 'dash' || st().tab === 'insights') return dashView(main, st().tab);
     if (st().tab === 'orders') return ordersView(main);
     if (st().tab === 'merchants') return merchantsView(main);
+    if (st().tab === 'points') return pointsView(main);
     if (st().tab === 'loans') return st().loan ? loanDetail(main) : loansView(main);
     listView(main);
   }
@@ -112,7 +113,7 @@
   }
 
   function tabsBar(cur) {
-    return `<div class="tabs" role="tablist">${[['dash', 'Dashboard'], ['apps', 'Applications'], ['insights', 'Insights'], ['orders', 'GCash Orders'], ['loans', 'Loans &amp; Payments'], ['merchants', 'Merchants']].map(([k, l]) => `<button class="${cur === k ? 'on' : ''}" data-act="adTab" data-t="${k}">${l}</button>`).join('')}</div>`;
+    return `<div class="tabs" role="tablist">${[['dash', 'Dashboard'], ['apps', 'Applications'], ['insights', 'Insights'], ['points', 'Points'], ['orders', 'GCash Orders'], ['loans', 'Loans &amp; Payments'], ['merchants', 'Merchants']].map(([k, l]) => `<button class="${cur === k ? 'on' : ''}" data-act="adTab" data-t="${k}">${l}</button>`).join('')}</div>`;
   }
 
   async function ordersView(main) {
@@ -142,6 +143,27 @@
     main.innerHTML = tabsBar(which) + (which === 'insights' ? D.insights(st().dash) : D.dashboard(st().dash, st().dashUi));
     D.bindTips(main);
     const dt = $('#adIvDate'); if (dt) dt.onchange = () => { st().dashUi.ivDay = dt.value; render(); };
+  }
+
+  async function pointsView(main) {
+    if (!st().points) {
+      main.innerHTML = tabsBar('points') + '<p class="muted pad">Loading…</p>';
+      try { st().points = await API.call({ action: 'adminPoints', token: tokenGet() }); } catch (e) { return fail(e); }
+    }
+    const P = st().points, L = P.claims || [], f = st().pfilter || 'Pending';
+    const rows = L.filter((x) => f === 'All' || x.status === f);
+    const verified = L.filter((x) => x.status === 'Verified');
+    const peso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH');
+    main.innerHTML = tabsBar('points') + `<div class="page-head"><div><h1>Loan points · Marketplace purchases</h1><p class="muted">1 point per ${peso(P.pesosPerPoint)} · ${P.required} points needed to apply online · ${L.filter((x) => x.status === 'Pending').length} to verify</p></div>
+      <div class="btns"><button class="btn ghost" data-act="adPtsRefresh">Refresh</button></div></div>
+      <div class="stats"><div class="stat"><span>Verified purchases</span><b>${peso(verified.reduce((t, x) => t + x.amount, 0))}</b></div><div class="stat"><span>Points issued</span><b>${verified.reduce((t, x) => t + x.points, 0)}</b></div>
+        ${['Pending', 'Verified', 'Rejected', 'All'].map((k) => `<button class="stat ${f === k ? 'hl' : ''}" data-act="adPtsFilter" data-s="${k}"><span>${k}</span><b>${k === 'All' ? L.length : L.filter((x) => x.status === k).length}</b></button>`).join('')}</div>
+      <div class="scroll"><table class="tbl admin"><tr><th>Submitted</th><th>Applicant</th><th>Merchant</th><th>Purchase date</th><th>Receipt / OR</th><th class="r">Amount</th><th class="r">Points</th><th>Status</th><th>Action</th></tr>
+      ${rows.map((x) => `<tr><td>${x.at ? new Date(x.at).toLocaleDateString() : ''}</td><td>${esc(x.name || '')}<br><small><code>${esc(x.passportId)}</code></small></td><td>${esc(x.merchant)}</td><td>${esc(x.date)}</td>
+        <td>${esc(x.orNo)}${x.receiptUrl ? ` · <a href="${esc(x.receiptUrl)}" target="_blank" rel="noopener">photo</a>` : ''}</td><td class="r">${peso(x.amount)}</td><td class="r"><b>${x.points}</b></td>
+        <td><span class="pst pst-${esc(String(x.status).toLowerCase())}">${esc(x.status)}</span>${x.notes ? `<br><small>${esc(x.notes)}</small>` : ''}</td>
+        <td>${x.status !== 'Verified' ? `<button class="btn sm" data-act="adPtsSet" data-id="${esc(x.id)}" data-s="Verified">Verify</button> ` : ''}${x.status !== 'Rejected' ? `<button class="btn sm ghost danger" data-act="adPtsSet" data-id="${esc(x.id)}" data-s="Rejected">Reject</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">Nothing here.</td></tr>'}</table></div>
+      <p class="muted small">Before verifying, confirm the receipt and amount with the merchant. Points = amount ÷ ${peso(P.pesosPerPoint)}, rounded down.</p>`;
   }
 
   async function merchantsView(main) {
@@ -272,6 +294,13 @@
         }
         case 'adOrdRefresh': st().orders = null; render(); break;
         case 'adMerRefresh': st().merchants = null; render(); break;
+        case 'adPtsRefresh': st().points = null; render(); break;
+        case 'adPtsFilter': st().pfilter = b.dataset.s; render(); break;
+        case 'adPtsSet': {
+          const note = b.dataset.s === 'Rejected' ? '' : '';
+          st().points = await API.call({ action: 'adminPointsUpdate', token: tokenGet(), claimId: b.dataset.id, status: b.dataset.s, note });
+          st().dash = null; A().toast('Purchase ' + b.dataset.s.toLowerCase() + '.', 'ok'); render(); break;
+        }
         case 'adOrdSet': {
           const note = b.dataset.s === 'Rejected' ? (prompt('Reason (shown to the applicant), e.g. "Reference number not found":') || '') : '';
           if (b.dataset.s !== 'Rejected' && !confirm('Set order ' + b.dataset.id + ' to "' + b.dataset.s + '"?')) break;

@@ -139,12 +139,12 @@
     if (!rec) return;
     if (rec.mr && rec.mr.state === 'recording') return stop();
     try {
-      rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     } catch (e) {
       return setState(`<span class="err">${A().ic('alert')} Microphone not allowed. Allow the microphone for this site in your browser settings, then try again.</span>`);
     }
     const mime = pickMime();
-    rec.mr = new MediaRecorder(rec.stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+    rec.mr = new MediaRecorder(rec.stream, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined);
     rec.chunks = [];
     rec.mr.ondataavailable = (e) => { if (e.data && e.data.size) rec.chunks.push(e.data); };
     rec.mr.onstop = send;
@@ -307,9 +307,9 @@
     const api = {
       done,
       async start() {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         const mime = pickMime();
-        mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+        mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined);
         mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
         mr.onstop = () => { if (api.cancelled) return rejectFn(new Error('cancelled')); resolveFn({ blob: new Blob(chunks, { type: mr.mimeType || 'audio/webm' }), secs: (Date.now() - t0) / 1000 }); };
         mr.start(500); t0 = Date.now();

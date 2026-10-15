@@ -100,6 +100,9 @@
     const inPipe = subs.filter((a) => ['Approved', 'Released', 'Fully Paid', 'Disapproved'].indexOf(a.status) < 0);
     const newApps = inPipe.filter((a) => a.clientType === 'New Applicant').length, reloanBlocked = inPipe.filter((a) => a.clientType === 'Active');
     const activeBorrowers = loans.filter((l) => l.balance > 0.5).length;
+    const ptsPending = (data.points || []).filter((x) => x.status === 'Pending').length;
+    const fee = data.fee || { total: 100, codesphere: 70, oledipo: 30 };
+    const feeCount = subs.length;
 
     return `<div class="page-head"><div><h1>Dashboard</h1><p class="muted">${esc(now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))} · NegosyoPlan is open 24/7</p></div>
         <div class="btns"><button class="btn ghost" data-act="adDashRefresh">${ic('cloud')} Refresh</button></div></div>
@@ -113,6 +116,8 @@
         ${tile('New sign-ups this week', num(signupsWeek), `${num(apps.length)} accounts in total`, { icon: 'id' })}
         ${tile('Outstanding loans', pesoK(out.reduce((s, l) => s + l.balance, 0)), `${num(out.length)} active loan${out.length === 1 ? '' : 's'}`, { icon: 'loan', act: 'adTabS', s: 'loans' })}
         ${tile('Past due', num(pastDue.length), pastDue.length ? peso(pastDue.reduce((s, l) => s + l.arrears, 0)) + ' unpaid amortizations' : 'all loans on time', { icon: 'alert', cls: pastDue.length ? 'warn' : '', act: 'adTabS', s: 'loans' })}
+        ${tile('Purchases to verify', num(ptsPending), 'Marketplace receipts for loan points', { icon: 'store', cls: ptsPending ? 'warn' : '', act: 'adTabS', s: 'points' })}
+        ${tile('Processing fees', peso(feeCount * fee.total), `${num(feeCount)} × ₱${fee.total} · ₱${num(feeCount * fee.codesphere)} CodeSphere · ₱${num(feeCount * fee.oledipo)} OLEDIPO · collected at release`, { icon: 'loan' })}
         ${tile('GCash to verify', num(toVerify), 'Voice to Text payments', { icon: 'check', cls: toVerify ? 'warn' : '', act: 'adTabS', s: 'orders' })}
       </div>
       <section class="form-card"><div class="sec-head"><h2>${ic('users')} Scheduled Interviews for ${sameDay(ivDay, now) ? 'Today' : 'the Day'}</h2>
@@ -184,8 +189,18 @@
     const ctRows = ['New Applicant', 'Active', 'Fully Paid'].map((t) => ({ label: t === 'Active' ? 'Active (outstanding balance)' : t === 'Fully Paid' ? 'Fully Paid (may reloan)' : t, v: subs.filter((a) => a.clientType === t).length }));
     const blocked = subs.filter((a) => a.clientType === 'Active' && ['Approved', 'Released', 'Fully Paid', 'Disapproved'].indexOf(a.status) < 0);
     const newShare = pct(ctRows[0].v, subs.length);
+    // marketplace purchases & loan points
+    const PT = data.points || [], req = data.pointsRequired || 100, ppp = data.pesosPerPoint || 100;
+    const ptsV = PT.filter((x) => x.status === 'Verified'), buy = ptsV.reduce((t, x) => t + x.amount, 0);
+    const byMer = {}; ptsV.forEach((x) => { byMer[x.merchant] = (byMer[x.merchant] || 0) + x.amount; });
+    const merRows = Object.entries(byMer).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => ({ label: k, v, text: peso(v), tip: peso(v) }));
+    const ptsReached = apps.filter((a) => (a.points || 0) >= req).length, ptsClose = apps.filter((a) => a.status === 'Draft' && (a.points || 0) >= req * 0.5 && (a.points || 0) < req);
+    const feeD = data.fee || { total: 100, codesphere: 70, oledipo: 30 };
     // key insights in plain language
     const K = [];
+    if (ptsV.length) K.push(`Applicants bought <b>${peso(buy)}</b> from Marketplace merchants to earn loan points; <b>${num(ptsReached)}</b> applicant${ptsReached === 1 ? ' has' : 's have'} reached ${req} points. This is the sales story to attract more merchants.`);
+    if (ptsClose.length) K.push(`<b>${num(ptsClose.length)}</b> draft applicant${ptsClose.length === 1 ? ' is' : 's are'} halfway or more to ${req} points. Merchant promos could help them finish.`);
+    if (subs.length) K.push(`Online processing fees: <b>${peso(subs.length * feeD.total)}</b> to collect at release (₱${num(subs.length * feeD.codesphere)} CodeSphere PH, ₱${num(subs.length * feeD.oledipo)} OLEDIPO).`);
     if (subs.length) K.push(`<b>${newShare}%</b> of online applications come from <b>New Applicants</b> (first EMBRACE loan); ${num(ctRows[2].v)} from fully paid borrowers applying again.`);
     if (blocked.length) K.push(`<b>${num(blocked.length)}</b> application${blocked.length === 1 ? ' is' : 's are'} from <b>Active</b> borrowers who still have an outstanding balance. Reloans are not allowed until full payment, so these should not be processed.`);
     if (apps.length) K.push(`<b>${pct(subs.length, apps.length)}%</b> of accounts have submitted an application (${num(subs.length)} of ${num(apps.length)}).`);
@@ -226,6 +241,9 @@
         <section class="form-card"><h2>${ic('plan')} Loan demand</h2>
           <div class="dtiles mini">${tile('In the pipeline', pesoK(pipeAmt), 'requested, not yet decided')}${tile('Average request', amts.length ? peso(amts.reduce((s, x) => s + x, 0) / amts.length) : '—', amts.length + ' application(s)')}</div>
           <h3>Requested amounts</h3>${hbars([['₱20K – 39K', 2e4, 4e4], ['₱40K – 59K', 4e4, 6e4], ['₱60K – 79K', 6e4, 8e4], ['₱80K – 100K', 8e4, 100001]].map(([l, a, b]) => ({ label: l, v: amts.filter((x) => x >= a && x < b).length })))}
+          <h2 class="mt">${ic('store')} Marketplace purchases (loan points)</h2><div class="dtiles mini">${tile('Verified purchases', pesoK(buy), num(ptsV.length) + ' receipts')}${tile('Reached ' + req + ' points', num(ptsReached), '1 point per ₱' + ppp)}</div>
+          ${merRows.length ? hbars(merRows) : '<p class="muted small">No verified purchases yet.</p>'}
+          <h2 class="mt">${ic('loan')} Online processing fees</h2><div class="dtiles mini">${tile('To collect at release', peso(subs.length * feeD.total), num(subs.length) + ' online applications')}${tile('CodeSphere PH / OLEDIPO', '₱' + num(subs.length * feeD.codesphere) + ' / ₱' + num(subs.length * feeD.oledipo), '₱' + feeD.codesphere + ' + ₱' + feeD.oledipo + ' each')}</div>
           <h2 class="mt">${ic('mic')} Voice to Text</h2><div class="dtiles mini">${tile('Unlocked', num(vPaid.length), 'paid ₱700 orders')}${tile('Collected', peso(vRev), 'via GCash')}</div></section>
       </div>`;
   }

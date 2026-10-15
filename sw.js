@@ -1,9 +1,9 @@
 /* NegosyoPlan service worker: offline app shell (same pattern as SMILE).
    Bump VERSION whenever you change files so users get the update. */
-const VERSION = 'negosyoplan-v4.10.1';
+const VERSION = 'negosyoplan-v4.12.0';
 const SHELL = [
-  './', './index.html', './styles.css', './config.js', './i18n.js', './calc.js', './store.js', './docs.js', './install.js', './landing.js', './app.js', './voice.js', './loans.js', './market.js', './admin-dash.js', './admin.js', './manifest.webmanifest',
-  './assets/hero.jpg', './assets/hero-sm.jpg', './assets/hero-blur.jpg', './assets/logo-circle.png', './assets/ledip.png', './assets/ledip-icon.png',
+  './', './index.html', './styles.css', './config.js', './i18n.js', './calc.js', './store.js', './docs.js', './install.js', './landing.js', './app.js', './voice.js', './loans.js', './market.js', './points.js', './admin-dash.js', './admin.js', './manifest.webmanifest',
+  './assets/hero.jpg', './assets/hero-sm.jpg', './assets/hero-blur.jpg', './assets/logo-circle.png', './assets/ledip.png', './assets/ledip-icon.png', './assets/merchants/johnica.png', './assets/merchants/greetopia.png',
   './icons/icon-32.png', './icons/icon-96.png', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'
 ];
 const NEVER_CACHE = ['script.google.com', 'googleusercontent.com'];

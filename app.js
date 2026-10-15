@@ -51,6 +51,7 @@
     send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
     users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'
   };
+  const PF = () => (G.GROW_CONFIG && G.GROW_CONFIG.PROCESSING_FEE) || { total: 100, codesphere: 70, oledipo: 30 };
   const VOICE = () => (G.GrowVoice ? G.GrowVoice.button() : '');
   /* LEDIP logo button → OLEDIPO staff login */
   const STAFF = (cls) => `<button type="button" class="ledip-btn ${cls || ''}" data-act="adLoginOpen" aria-label="NegosyoPlan Admin — log in"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"></button>`;
@@ -249,10 +250,11 @@
   function shell() {
     document.body.innerHTML = `
       <a class="skip" href="#main">Skip to content</a>
-      ${S.demo ? `<div class="demo-bar" role="status"><b>DEMO MODE</b><span>${S.demo === 'voice' ? 'Voice to Text demo' : S.demo === 'new' ? 'Demo 2 · New Applicant' : 'Demo 1 · Active borrower'} · fictional data · your real account is not affected</span><button type="button" data-act="demoExit">${ic('x')} Exit demo</button></div>` : ''}
+      ${S.demo ? `<div class="demo-bar" role="status"><b>DEMO MODE</b><span>${S.demo === 'voice' ? 'Voice to Text demo' : S.demo === 'blank' ? 'Demo 3 · Blank new applicant' : S.demo === 'new' ? 'Demo 2 · New Applicant' : 'Demo 1 · Active borrower'} · fictional data · your real account is not affected</span><button type="button" data-act="demoExit">${ic('x')} Exit demo</button></div>` : ''}
       <header class="top">
         <a class="brand" href="#home" aria-label="NegosyoPlan home">${LOGO()}<span><b>NegosyoPlan</b><small>Business Plan &amp; Financial Statement Builder · MSME Enterprise Passport</small></span></a>
         <div class="top-r">
+          <button type="button" class="top-home" data-act="goLanding" title="${t('Back to the NegosyoPlan start page')}" aria-label="${t('Home')}">${ic('home')}<span>${t('Home')}</span></button>
           <span id="syncPill" class="pill" role="status" aria-live="polite"></span>
           <label class="lang">${ic('globe')}<select id="langSel" aria-label="${t('Language')}">${Object.entries(I.LANGS).map(([k, v]) => `<option value="${k}" ${S.settings.lang === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
           <a class="icon-btn" href="#settings" aria-label="${t('Settings')}" title="${t('Settings')}">${ic('cog')}</a>
@@ -645,6 +647,7 @@
   function vLoanApply() {
     const p = S.profile, l = p.loan, ofw = l.applicantType === 'ofw';
     const act = G.GrowLoans && G.GrowLoans.activeLoan();
+    const ptsOk = !G.GrowPoints || G.GrowPoints.eligible();
     const yn = [['yes', 'Yes'], ['no', 'No'], ['', 'Not sure']];
     const el = C.eligibility(p);
     const qs = el.list.map((x) => {
@@ -663,6 +666,7 @@
         <button class="btn ghost" data-act="doc" data-doc="checklist">${ic('eye')} Checklist</button></div>
       <div class="disclaimer">${ic('alert')} ${t('This app does not guarantee loan approval.')} It helps you prepare requirements based on the official EMBRACE guidelines. Applications are evaluated by the Technical Working Group (TWG).</div>
       ${act ? G.GrowLoans.activeNotice(act) : ''}
+      ${G.GrowPoints ? G.GrowPoints.card('apply') : ''}
       <div class="form-card"><h2>1. ${t('Eligibility self-check')}</h2>
         ${field({ path: 'loan.applicantType', label: 'I am applying as', type: 'radio', options: [['micro', 'Micro-enterprise owner'], ['ofw', 'Overseas Filipino Worker (OFW)']] })}
         <ul class="elig-list">${qs}</ul>
@@ -686,9 +690,11 @@
         <p>Status: <b class="st st-${esc(st.replace(/\s/g, ''))}">${esc(st)}</b>${p.review && p.review.applicantNo ? ' · Applicant No. ' + esc(p.review.applicantNo) : ''}</p>
         ${p.review && p.review.remarks ? `<p class="hint">${ic('alert')} OLEDIPO remarks: ${esc(p.review.remarks)}</p>` : ''}
         ${issuesBox(missingList(comp), 'Before submitting')}
-        <label class="toggle consent"><input type="checkbox" data-bool="consent.share" ${p.consent.share ? 'checked' : ''}> I consent to share my Enterprise Passport, business plan, financial statements and uploaded documents with OLEDIPO / LEDIP Center of the Provincial Government of Iloilo for evaluation of my EMBRACE application and for business development assistance. I confirm the information is true to the best of my knowledge.</label>
+        <label class="toggle consent"><input type="checkbox" data-bool="consent.share" ${p.consent.share ? 'checked' : ''}> I consent to share my Enterprise Passport, business plan, financial statements and uploaded documents with OLEDIPO / LEDIP Center of the Provincial Government of Iloilo for evaluation of my EMBRACE application and for business development assistance. I confirm the information is true to the best of my knowledge. I agree to the ₱${PF().total} online processing fee, deducted from my loan proceeds on release.</label>
+        <div class="fee-box">${ic('loan')}<div><b>Online processing fee: ₱${PF().total}</b> (₱${PF().codesphere} CodeSphere PH · ₱${PF().oledipo} OLEDIPO).<br><span class="muted small">Nothing to pay now. It is deducted by OLEDIPO from your loan proceeds on release, together with the 3% service fee.</span></div></div>
         ${act ? '<p class="err">Submission is disabled while you have an outstanding EMBRACE balance.</p>' : ''}
-        <div class="btns"><button class="btn big" data-act="submit" ${!p.consent.share || act ? 'disabled' : ''}>${ic('send')} ${t('Submit to OLEDIPO')}</button>
+        ${!ptsOk ? `<p class="err">You need ${G.GrowPoints.state().required} loan points to submit online (you have ${G.GrowPoints.state().points}). Earn points by buying from Marketplace merchants.</p>` : ''}
+        <div class="btns"><button class="btn big" data-act="submit" ${!p.consent.share || act || !ptsOk ? 'disabled' : ''}>${ic('send')} ${t('Submit to OLEDIPO')}</button>
         <a class="btn ghost" href="#docs">${ic('print')} Print documents instead</a></div>
         <p class="muted small">Online submission needs internet. The first time, you will be asked to create your online account (username and password) so OLEDIPO can receive your application. You can also print your documents and submit them in person at the LEDIP Center.</p>
       </div>`;
@@ -785,7 +791,7 @@
       const lc = C.loanCalc(S.profile.loan.amount, S.profile.loan.releaseDate);
       if (!lc.amount) return '<span class="muted">Enter an amount.</span>';
       return (lc.valid ? '' : `<span class="flag">${ic('alert')} Must be ₱20,000 – ₱100,000.</span><br>`) +
-        `Term <b>${lc.term} months</b> after 6-month grace · 0% interest<br>Service fee (3%) <b>${peso(lc.fee)}</b> → you receive <b>${peso(lc.net)}</b><br>Monthly amortization <b>${peso(lc.monthly)}</b>`;
+        `Term <b>${lc.term} months</b> after 6-month grace · 0% interest<br>Service fee (3%) <b>${peso(lc.fee)}</b> + online processing fee <b>${peso(lc.proc)}</b> → you receive <b>${peso(lc.net)}</b><br>Monthly amortization <b>${peso(lc.monthly)}</b>`;
     },
     schedule: () => {
       const lc = C.loanCalc(S.profile.loan.amount, S.profile.loan.releaseDate);
@@ -972,8 +978,9 @@
       case 'togglePw': { const i = document.getElementById(b.dataset.for); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.classList.toggle('on', i.type === 'text'); } break; }
       case 'lockNow': if (S.demo) { exitDemo(); break; } Store.lock(); lockScreen(); break;
       case 'demoExit': exitDemo(); break;
+      case 'goLanding': goLanding(); break;
       case 'wipe': if (confirm('Erase ALL NegosyoPlan data on this device? Download a backup first if you need it.') && confirm('Are you sure? This cannot be undone.')) { await Store.wipe(); location.hash = ''; location.reload(); } break;
-      default: if (G.GrowLoans && /^ln[A-Z]/.test(a)) { G.GrowLoans.onClick(a, b); return; } if (G.GrowMarket && /^mk[A-Z]/.test(a)) { G.GrowMarket.onClick(a, b); return; } if (G.GrowVoice && G.GrowVoice.onClick(a, b)) return; if (G.GrowAdmin && G.GrowAdmin.onClick) G.GrowAdmin.onClick(a, b, e);
+      default: if (G.GrowPoints && /^pts[A-Z]/.test(a) && G.GrowPoints.onClick(a, b)) return; if (G.GrowLoans && /^ln[A-Z]/.test(a)) { G.GrowLoans.onClick(a, b); return; } if (G.GrowMarket && /^mk[A-Z]/.test(a)) { G.GrowMarket.onClick(a, b); return; } if (G.GrowVoice && G.GrowVoice.onClick(a, b)) return; if (G.GrowAdmin && G.GrowAdmin.onClick) G.GrowAdmin.onClick(a, b, e);
     }
   }
 
@@ -1119,6 +1126,7 @@
     const p = S.profile;
     const act = G.GrowLoans && G.GrowLoans.activeLoan();
     if (act) return toast('You still have an outstanding EMBRACE balance. A reloan can be applied for after full payment.', 'err');
+    if (G.GrowPoints && !G.GrowPoints.eligible()) return toast('You need ' + G.GrowPoints.state().required + ' loan points to apply online. Earn them by buying from Marketplace merchants.', 'err');
     if (!p.consent.share) return toast('Please give consent first.', 'err');
     if (!API.configured()) return toast('Online submission is not available in this copy. Print your documents and submit them at the LEDIP Center.', 'err');
     if (!S.session) { toast('Create your online account first so OLEDIPO can receive your application.', 'err'); return accountDialog('register'); }
@@ -1259,7 +1267,11 @@
     const now = new Date(), iv = new Date(now.getTime() + 3 * 864e5); iv.setHours(9, 0, 0, 0);
     const ivAt = iv.getFullYear() + '-' + String(iv.getMonth() + 1).padStart(2, '0') + '-' + String(iv.getDate()).padStart(2, '0') + 'T09:00';
     let P;
-    if (kind === 'voice') {
+    if (kind === 'blank') {
+      /* Demo 3 — Blank new applicant: has just signed up; nothing written yet in the Passport or Business Plan */
+      P = C.newProfile();
+      P.passportId = 'EMB-DEMO-0003';
+    } else if (kind === 'voice') {
       P = C.newProfile();
       Object.assign(P.owner, { firstName: 'Rosa', lastName: 'Mendoza', contact: '09170000106' });
     } else if (kind === 'new') {
@@ -1269,6 +1281,7 @@
       Object.assign(P.business, { name: "Rosa's Carinderia (DEMO)", nature: 'Carinderia / eatery', startYear: String(now.getFullYear() - 6), capital: '60000', annualSales: '312000', netAssets: '85000',
         description: "Rosa's Carinderia serves home-cooked viands and rice to tricycle drivers, students and market vendors near the town plaza. It has been open for 6 years. Sales dropped during the last typhoon when the area flooded for two weeks. I want to buy a bigger refrigerator and add a breakfast menu." });
       P.plan.projectName = "Refrigerator and working capital for Rosa's Carinderia";
+      if (G.GrowPoints) G.GrowPoints.setDemo(P, 120);
       P.loan.amount = '35000';
       P.passportId = 'EMB-DEMO-0002';
       P.consent.share = true;
@@ -1279,6 +1292,7 @@
       /* Demo 1 — Active borrower: loan released, balance outstanding → cannot reloan yet */
       P = C.normalize(sampleProfile());
       P.passportId = 'EMB-DEMO-0001';
+      if (G.GrowPoints) G.GrowPoints.setDemo(P, 45);
       P.consent.share = true;
       const rel = new Date(now.getFullYear() - 1, now.getMonth(), 25);
       P.review = { status: 'Released', applicantNo: '901', remarks: 'Loan released. Pay your monthly amortization on time at the BAYAD Center.', submittedAt: new Date(rel.getTime() - 40 * 864e5).toISOString(),
@@ -1292,12 +1306,30 @@
     await Store.saveProfile(P);
     if (location.hash && location.hash !== '#home') history.replaceState(null, '', location.pathname + location.search);
     await start();
-    if (kind === 'voice') location.hash = '#passport/business'; else if (location.hash !== '#home') location.hash = '#home'; else route();
+    if (kind === 'voice') location.hash = '#passport/business'; else if (kind === 'blank') location.hash = '#passport'; else if (location.hash !== '#home') location.hash = '#home'; else route();
     if (kind === 'voice') setTimeout(() => { if (G.GrowVoice) G.GrowVoice.onClick('voiceAsk', document.body); }, 700);
+    else if (kind === 'blank') toast('Demo 3 · Blank new applicant: nothing is filled in yet. Start with the Passport, then the Business Plan — try the Voice to Text button.', 'ok');
     else if (kind === 'new') toast('Demo 2 · New Applicant: Rosa Mendoza · see Loan → My Loan for the Loan Status tracker.', 'ok');
     else toast('Demo 1 · Active borrower: Liza Dela Peña · outstanding balance, so a reloan is blocked until full payment.', 'ok');
   }
   function exitDemo() { S.demo = null; location.hash = ''; location.reload(); }
+
+  /* Home button (header, every page): back to the NegosyoPlan poster landing page.
+     The work is saved first. "Start NegosyoPlan" then returns straight to the app while it is still unlocked;
+     leaving a demo this way ends the demo (the real account is opened again with its password). */
+  async function goLanding() {
+    if (G.GrowVoice) G.GrowVoice.cancel();
+    closeModal();
+    clearTimeout(saveTimer);
+    if (S.profile) { try { await persist(); } catch (e) { /* persist shows its own toast */ } }
+    const wasDemo = !!S.demo;
+    if (wasDemo) { S.demo = null; Store.useDb(); }
+    S.profile = null; S.shellMode = '';
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+    const resume = async () => { window.scrollTo(0, 0); if (Store.isUnlocked() && (await Store.status()).hasPin) return start(); enterApp(); };
+    if (G.GrowLanding) G.GrowLanding.show(resume, () => renderAdmin()); else resume();
+  }
 
   /* ================================================================ lock / welcome */
   async function lockScreen() {
@@ -1416,6 +1448,7 @@
     if (!location.hash || location.hash === '#') location.hash = '#home'; else route();
     if (S.demo) { /* demo: no network */ } else if (S.session) sync(); else finishPendingSignup();
     if (G.GrowVoice) G.GrowVoice.init().then(() => { if (/^#(passport|plan|finance|settings)/.test(location.hash)) route(); });
+    if (G.GrowPoints) G.GrowPoints.load(false).then(() => { if (/^#(loan|market)/.test(location.hash)) route(); });
     if (G.GrowLoans) G.GrowLoans.load(false).then(() => { if (/^#(home)?$/.test(location.hash || '#home') && G.GrowLoans.hasLoans()) route(); });
   }
   let bound = false;
@@ -1468,6 +1501,6 @@
   }
 
 
-  G.GrowApp = { startDemo, exitDemo, sample: () => sampleProfile(), STAFF, S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
+  G.GrowApp = { accountDialog, startDemo, exitDemo, sample: () => sampleProfile(), STAFF, S, ic, esc, setPath, TPL, toast, modal, closeModal, openDoc, openDocObj, download, field, refreshCalcs, renderAdmin, getPath, touch, persist, route, sync };
   document.addEventListener('DOMContentLoaded', boot);
 })(window);

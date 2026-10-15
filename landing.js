@@ -47,7 +47,8 @@
           <div class="land-feats"><span>✓ Works offline</span><span>✓ English · Filipino · Hiligaynon</span></div>
           ${CFG().DEMO ? `<div class="demo-btns" role="group" aria-label="Demo">
             <button type="button" class="btn-demo" id="demoClient"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/></svg><span><b>Demo 1</b> Active borrower</span></button>
-            <button type="button" class="btn-demo" id="demoNew"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V11"/><path d="M12 11C12 6 8 3 3 3c0 5 4 8 9 8zM12 13c0-4 3-7 9-7 0 4-3 7-9 7z"/></svg><span><b>Demo 2</b> New applicant</span></button></div>` : ''}
+            <button type="button" class="btn-demo" id="demoNew"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V11"/><path d="M12 11C12 6 8 3 3 3c0 5 4 8 9 8zM12 13c0-4 3-7 9-7 0 4-3 7-9 7z"/></svg><span><b>Demo 2</b> New applicant</span></button>
+            <button type="button" class="btn-demo" id="demoBlank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 12v6M9 15h6"/></svg><span><b>Demo 3</b> Blank — start from zero</span></button></div>` : ''}
           <p class="grow-by">Office of the Local Economic Development and Investment Promotion Officer · Iloilo Province<br>
             <button type="button" class="link-btn" id="installLink" hidden>Install app</button></p>
           <button type="button" class="ledip-btn on-dark" id="staffBtn" aria-label="NegosyoPlan Admin — log in"><img src="assets/ledip-icon.png" alt="" width="40" height="40" draggable="false"></button>
@@ -61,6 +62,7 @@
     const dc = document.getElementById('demoClient'), dv = document.getElementById('demoVoice');
     if (dc) dc.onclick = () => demo('client');
     const dn = document.getElementById('demoNew'); if (dn) dn.onclick = () => demo('new');
+    const db = document.getElementById('demoBlank'); if (db) db.onclick = () => demo('blank');
     if (dv) dv.onclick = () => demo('voice');
     document.getElementById('staffBtn').onclick = (e) => { e.preventDefault(); if (G.GrowInstall) G.GrowInstall.hide(false); if (G.GrowAdmin && G.GrowAdmin.loginModal) G.GrowAdmin.loginModal(); else { location.hash = '#admin'; if (onStaff) onStaff(); } };
     const il = document.getElementById('installLink');

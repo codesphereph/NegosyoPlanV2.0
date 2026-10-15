@@ -4,6 +4,10 @@
   var D = {
     // navigation
     'Home': ['Home', 'Puloy-an'],
+    'Back to the NegosyoPlan start page': ['Bumalik sa simula ng NegosyoPlan', 'Balik sa umpisa sang NegosyoPlan'],
+    'Visit website': ['Bisitahin ang website', 'Bisitaha ang website'],
+    'Shopping & Music': ['Pamimili at Musika', 'Pagbakal kag Musika'],
+    'Gifts & Photo Booth': ['Regalo at Photo Booth', 'Regalo kag Photo Booth'],
     'Passport': ['Passport', 'Passport'],
     'Financial Statement': ['Financial Statement', 'Financial Statement'],
     'Loan': ['Pautang', 'Utang'],

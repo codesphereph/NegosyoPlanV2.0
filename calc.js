@@ -133,7 +133,9 @@
         schedule.push({ no: i, due: due, payment: pay, balance: Math.max(0, bal) });
       }
     }
-    return { amount: a, term: term, fee: fee, net: r2(a - fee), monthly: monthly, schedule: schedule, penaltyPerMonthLate: r2(monthly * EMBRACE.PENALTY),
+    var pf = (G.GROW_CONFIG && G.GROW_CONFIG.PROCESSING_FEE) || { total: 100, codesphere: 70, oledipo: 30 };
+    var proc = a > 0 ? n(pf.total) : 0;
+    return { amount: a, term: term, fee: fee, proc: proc, procSplit: pf, net: r2(a - fee - proc), monthly: monthly, schedule: schedule, penaltyPerMonthLate: r2(monthly * EMBRACE.PENALTY),
       valid: a >= EMBRACE.MIN && a <= EMBRACE.MAX };
   }
 

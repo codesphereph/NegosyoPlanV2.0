@@ -131,7 +131,7 @@
     var lc = pc.loan;
     if (lc.amount) {
       h += '<h3>D. Financing Requirement</h3><table class="kv">' + kv('Loan amount applied for', peso(lc.amount)) + kv('Purpose', p.loan.purposes.join(', ')) +
-        kv('Service fee (3%, deducted on release)', peso(lc.fee)) + kv('Net loan proceeds', peso(lc.net)) + kv('Term', lc.term + ' months after a 6-month grace period, 0% interest') +
+        kv('Service fee (3%, deducted on release)', peso(lc.fee)) + kv('Online processing fee (deducted on release)', peso(lc.proc)) + kv('Net loan proceeds', peso(lc.net)) + kv('Term', lc.term + ' months after a 6-month grace period, 0% interest') +
         kv('Monthly amortization', peso(lc.monthly)) + '</table>';
     }
     h += '<h3>E. 12-Month Cash Flow Projection</h3>' + cashflowTable(pc) +
@@ -249,7 +249,7 @@
     var h = header('FINANCING SUMMARY & AMORTIZATION SCHEDULE', 'EMBRACE Program · ' + esc(p.business.name || ''));
     h += '<table class="kv">' + kv('Applicant', C.fullName(p.owner)) + kv('Business', p.business.name) + kv('Type of applicant', l.applicantType === 'ofw' ? 'Overseas Filipino Worker (OFW)' : 'Micro-entrepreneur') +
       kv('Loan amount applied for', lc.amount ? peso(lc.amount) : '') + kv('Purpose', l.purposes.join(', ')) + kv('Interest', '0% (zero percent)') +
-      kv('Service fee (3%, deducted from principal)', lc.amount ? peso(lc.fee) : '') + kv('Net proceeds', lc.amount ? peso(lc.net) : '') +
+      kv('Service fee (3%, deducted from principal)', lc.amount ? peso(lc.fee) : '') + kv('Online processing fee (deducted on release)', lc.amount ? peso(lc.proc) : '') + kv('Net proceeds', lc.amount ? peso(lc.net) : '') +
       kv('Payment period', lc.term ? lc.term + ' months (' + (lc.term / 12) + ' year/s) after a 6-month grace period' : '') + kv('Monthly amortization', lc.amount ? peso(lc.monthly) : '') +
       kv('Collateral', l.collateral === 'pdc' ? 'Post-Dated Checks' : l.collateral === 'comaker' ? 'Co-maker: ' + (l.comaker.name || '') + (l.comaker.relation ? ' (' + l.comaker.relation + ')' : '') : '') +
       kv('Penalty for late payment', '0.5% of the amortization due per month of delay (' + peso(lc.penaltyPerMonthLate) + '/month)') + '</table>';
